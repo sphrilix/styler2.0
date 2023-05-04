@@ -1,5 +1,6 @@
 import sys
 from typing import List
+from utils.tokenize import lex_java
 
 
 def _main(args: List[str]) -> int:
@@ -8,4 +9,10 @@ def _main(args: List[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(_main(sys.argv))
+    tokens = lex_java('public class Main {'
+                      '   public static void main(String[] args) {'
+                      '       System.out.println("test");'
+                      '   }'
+                      '}')
+    for token in tokens:
+        print(token)

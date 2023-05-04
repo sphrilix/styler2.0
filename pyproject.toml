@@ -7,7 +7,8 @@ readme = "README.adoc"
 packages = [{include = "styler2.0", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "~3.8"
+python = "~3.11"
+antlr4-python3-runtime = "^4.12.0"
 
 
 [tool.poetry.group.dev.dependencies]
