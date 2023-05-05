@@ -13,7 +13,7 @@ antlr4-python3-runtime = "^4.12.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.12.0"
-isort = { version = "^5.11.4", extras = ["pyproject"] }
+isort = { version = "^5.12.0", extras = ["pyproject"] }
 mypy = "^0.991"
 pre-commit = "^3.0.0"
 pylint = "^2.15.10"
@@ -29,8 +29,9 @@ pytest-sugar = "^0.9.6"
 
 [tool.black]
 line-length = 88
-target_version = ["py38"]
+target_version = ["py311"]
 include = '\.pyi?$'
+force-exclude = "src/antlr/JavaLexer.py"
 
 
 [tool.isort]
@@ -92,8 +93,9 @@ exclude = [
     "venv",
     ".mypy_cache",
     ".pytest_cache",
+    "JavaLexer.py"
 ]
-target-version = "py38"
+target-version = "py311"
 
 [tool.ruff.mccabe]
 max-complexity = 10

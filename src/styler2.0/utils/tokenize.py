@@ -1,7 +1,8 @@
 import re
 from dataclasses import dataclass
 from typing import List
-from antlr4 import InputStream, CommonTokenStream
+
+from antlr4 import CommonTokenStream, InputStream
 
 from src.antlr.JavaLexer import JavaLexer
 
@@ -18,7 +19,7 @@ class ProcessedToken:
 
 class Identifier(ProcessedToken):
     def __init__(self, text: str, line: int, column: int) -> None:
-        super(Identifier, self).__init__(text, line, column)
+        super().__init__(text, line, column)
 
     def __str__(self) -> str:
         return "IDENTIFIER"
@@ -26,10 +27,25 @@ class Identifier(ProcessedToken):
 
 class Whitespace(ProcessedToken):
     def __init__(self, text: str, line: int, column: int) -> None:
-        super(Whitespace, self).__init__(text, line, column)
+        super().__init__(text, line, column)
 
     def __str__(self) -> str:
-        return ""
+        return "_".join(
+            self._process_whitespace_type(group) for group in re.findall(" +|\n+|\t+", self.text)
+        )
+
+    @staticmethod
+    def _process_whitespace_type(whitespace: str) -> str:
+        match [*whitespace]:
+            case ["\n", *_]:
+                return f"{len(whitespace)}_NL"
+            case ["\t", *_]:
+                return f"{len(whitespace)}_TB"
+            case [" ", *_]:
+                return f"{len(whitespace)}_SP"
+            case _:
+                return "0_None"
+
 
 @dataclass
 class RawToken:
