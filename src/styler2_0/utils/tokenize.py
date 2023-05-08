@@ -9,19 +9,27 @@ from src.antlr.JavaLexer import JavaLexer
 
 
 class ProcessedToken:
+    """
+    Base class for a processed token coming from the lexer.
+    """
+
     def __init__(self, text: str, line: int, column: int) -> None:
         self.text = text
         self.line = line
         self.column = column
 
     def __str__(self) -> str:
-        return self.text
+        return self.de_tokenize()
 
     def de_tokenize(self) -> str:
         return self.text
 
 
 class Identifier(ProcessedToken):
+    """
+    Class which represents Identifier/Literals
+    """
+
     def __init__(self, text: str, line: int, column: int) -> None:
         super().__init__(text, line, column)
 
@@ -30,10 +38,16 @@ class Identifier(ProcessedToken):
 
 
 class Whitespace(ProcessedToken):
+    """
+    Class which represents a whitespace.
+    """
+
     def __init__(self, text: str, line: int, column: int) -> None:
         super().__init__(text, line, column)
 
     def __str__(self) -> str:
+        if "" == self.text:
+            return "0_None"
         return "_".join(
             self._process_whitespace_type(group)
             for group in re.findall(" +|\n+|\t+", self.text)
@@ -49,22 +63,39 @@ class Whitespace(ProcessedToken):
             case [" ", *_]:
                 return f"{len(whitespace)}_SP"
             case _:
-                return "0_None"
+                ValueError("There was a non-whitespace char passed.")
 
 
 class ProcessedSourceFile:
+    """
+    Class which represents a processed/tokenized Java file.
+    """
+
     def __init__(self, file_name: Path, tokens: list[ProcessedToken]) -> None:
         self.file_name = file_name
         self.tokens = tokens
+
+        # remove the eof if presents in tokens.
+        self._remove_eof()
+
+        # places where possible placeholder for whitespaces.
         self._insert_placeholder_ws()
 
     def de_tokenize(self) -> str:
+        """
+        Get the real Java source code.
+        :return: The original Java source code.
+        """
         return "".join(map(lambda token: token.de_tokenize(), self.tokens))
 
     def tokenized_str(self) -> str:
+        """
+        Get the tokenized/processed string of the Java file.
+        :return: The processed string representation of the Java file.
+        """
         return f"{' '.join(map(lambda token: str(token), self.tokens))}\n"
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return self.tokenized_str()
 
     def _insert_placeholder_ws(self) -> None:
@@ -85,20 +116,36 @@ class ProcessedSourceFile:
             )
         self.tokens = padded_tokens
 
+    def _remove_eof(self):
+        if self.tokens[-1].text == "<EOF>":
+            self.tokens = self.tokens[:-1]
+
 
 class ContainsStr(str):
+    """
+    Helper class inheriting from str to allow match expression with contains on str.
+    """
+
     def __eq__(self, other):
         return self.__contains__(other)
 
 
 @dataclass
 class RawToken:
+    """
+    Raw token passed from the lexer.
+    """
+
     symbolic_name: str
     text: str
     line: int
     column: int
 
     def process(self) -> ProcessedToken:
+        """
+        Turn the token into a ProcessedToken which can than be used in further actions.
+        :return: Returns the "processed" RawToken.
+        """
         match ContainsStr(self.symbolic_name):
             case "IDENTIFIER" | "LITERAL":
                 return Identifier(self.text, self.line, self.column)
@@ -122,6 +169,11 @@ def _tokenize_java_code(code: str) -> list[ProcessedToken]:
 
 
 def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
+    """
+    Parses the Java files form a given directory into a list of ProcessedSourceFile.
+    :param directory: The given directory
+    :return: Returns the list of ProcessedSourceFile.
+    """
     processed_java_files = []
     for subdir, _, files in os.walk(directory):
         for file in files:
