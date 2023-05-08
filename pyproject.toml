@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Maximilian Jungwirth <maxi.jungwirth@gmail.com>"]
 readme = "README.adoc"
-packages = [{include = "styler2.0", from = "src"}]
+packages = [{include = "styler2_0", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "~3.11"
