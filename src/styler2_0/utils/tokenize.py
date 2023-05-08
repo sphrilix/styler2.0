@@ -53,7 +53,6 @@ class Whitespace(ProcessedToken):
 
 
 class ProcessedSourceFile:
-
     def __init__(self, file_name: Path, tokens: list[ProcessedToken]) -> None:
         self.file_name = file_name
         self.tokens = tokens
@@ -65,7 +64,7 @@ class ProcessedSourceFile:
     def tokenized_str(self) -> str:
         return f"{' '.join(map(lambda token: str(token), self.tokens))}\n"
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return self.tokenized_str()
 
     def _insert_placeholder_ws(self) -> None:
@@ -74,10 +73,16 @@ class ProcessedSourceFile:
             padded_tokens.append(token)
             if not (isinstance(token, Whitespace) or isinstance(suc, Whitespace)):
                 padded_tokens.append(Whitespace("", token.line, suc.column))
-            padded_tokens.append(suc)
+        padded_tokens.append(self.tokens[-1])
         last_token = padded_tokens[-1]
         if not isinstance(last_token, Whitespace):
-            padded_tokens.append(Whitespace("", last_token.line, last_token.column + len(last_token.de_tokenize())))
+            padded_tokens.append(
+                Whitespace(
+                    "",
+                    last_token.line,
+                    last_token.column + len(last_token.de_tokenize()),
+                )
+            )
         self.tokens = padded_tokens
 
 
@@ -125,6 +130,8 @@ def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
             with open(Path(subdir) / Path(file)) as file_stream:
                 content = file_stream.read()
                 tokens = _tokenize_java_code(content)
-                processed_java_file = ProcessedSourceFile(Path(subdir) / Path(file), tokens)
+                processed_java_file = ProcessedSourceFile(
+                    Path(subdir) / Path(file), tokens
+                )
                 processed_java_files.append(processed_java_file)
     return processed_java_files
