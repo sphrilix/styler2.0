@@ -44,6 +44,7 @@ def run_checkstyle_on_dir(directory: Path, version: str) -> None:
     ) as checkstyle_process:
         output = checkstyle_process.communicate()[0]
     print(output)
+    print(path_to_jar)
 
 
 def _build_path_to_checkstyle_jar(version: str) -> Path:
