@@ -87,10 +87,10 @@ def run_checkstyle_on_dir(
     directory: Path, version: str
 ) -> frozenset[CheckstyleFileReport]:
     """
-    Run checkstyle on the given directory.
-    :param directory:
-    :param version:
-    :return:
+    Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
+    :param directory: The directory of the Java project.
+    :param version: The version of checkstyle to use.
+    :return: Returns a set of ChecksStyleFileReport.
     """
     path_to_jar = _build_path_to_checkstyle_jar(version)
     path_to_checkstyle_config = _find_checkstyle_config(directory)
