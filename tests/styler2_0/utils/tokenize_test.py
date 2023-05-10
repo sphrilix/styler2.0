@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from src.styler2_0.utils.tokenize import (
-    ProcessedToken,
     Identifier,
     ProcessedSourceFile,
+    ProcessedToken,
     Whitespace,
 )
 

@@ -20,6 +20,7 @@ ignore=CVS
 # Add files or directories matching the regex patterns to the ignore-list. The
 # regex matches against paths and can be in Posix or Windows format.
 ignore-paths=
+  src/antlr/JavaLexer.py,
 
 # Files or directories matching the regex patterns are skipped. The regex
 # matches against base names, not paths. The default value ignores emacs file
@@ -48,7 +49,7 @@ persistent=yes
 
 # Minimum Python version to use for version dependent checks. Will default to
 # the version used to run pylint.
-py-version=3.8
+py-version=3.11
 
 # Discover python modules and packages in the file system subtree.
 recursive=no
@@ -86,7 +87,8 @@ disable=raw-checker-failed,
         useless-suppression,
         deprecated-pragma,
         use-symbolic-message-instead,
-        missing-module-docstring
+        missing-module-docstring,
+        import-error
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
