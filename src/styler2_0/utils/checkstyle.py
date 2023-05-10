@@ -10,13 +10,13 @@ AVAILABLE_VERSIONS = [
     for file in os.listdir(CHECKSTYLE_DIR)
     if file.startswith("checkstyle-")
 ]
-CHECKSTYLE_RUN_CMD = "java -jar {} -f xml -c {} {} --exclude-regexp .*/test/.* --exclude-regexp .*/resources/.*"
+CHECKSTYLE_RUN_CMD = (
+    "java -jar {} -f xml -c {} {} "
+    "--exclude-regexp .*/test/.* "
+    "--exclude-regexp .*/resources/.*"
+)
 CHECKSTYLE_JAR_NAME = "checkstyle-{}-all.jar"
-CHECKSTYLE_CONF_REG = re.compile(".*checkstyle.*\.xml")
-
-
-def _collect_checkstyle_version_of_project(directory: Path) -> str:
-    pass
+CHECKSTYLE_CONF_REG = re.compile(r".*checkstyle.*\.xml")
 
 
 def _find_checkstyle_config(directory: Path) -> Path:
@@ -28,23 +28,23 @@ def _find_checkstyle_config(directory: Path) -> Path:
 
 
 def run_checkstyle_on_dir(directory: Path, version: str) -> None:
+    """
+    Run checkstyle on the given directory.
+    :param directory:
+    :param version:
+    :return:
+    """
     path_to_jar = _build_path_to_checkstyle_jar(version)
     path_to_checkstyle_config = _find_checkstyle_config(directory)
     checkstyle_cmd = CHECKSTYLE_RUN_CMD.format(
         path_to_jar, path_to_checkstyle_config, directory
     )
-    checkstyle_process = subprocess.Popen(
+    with subprocess.Popen(
         checkstyle_cmd.split(), stdout=subprocess.PIPE
-    )
-    output = checkstyle_process.communicate()[0]
+    ) as checkstyle_process:
+        output = checkstyle_process.communicate()[0]
     print(output)
 
 
 def _build_path_to_checkstyle_jar(version: str) -> Path:
     return Path(CHECKSTYLE_DIR) / CHECKSTYLE_JAR_NAME.format(version)
-
-
-def run_checkstyle_on_project(directory: Path) -> (list[Path], list[Path]):
-    pass
-
-    return [], []

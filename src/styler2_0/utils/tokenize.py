@@ -22,6 +22,10 @@ class ProcessedToken:
         return self.de_tokenize()
 
     def de_tokenize(self) -> str:
+        """
+        Return none tokenized representation.
+        :return: Returns none tokenized representation.
+        """
         return self.text
 
 
@@ -29,9 +33,6 @@ class Identifier(ProcessedToken):
     """
     Class which represents Identifier/Literals
     """
-
-    def __init__(self, text: str, line: int, column: int) -> None:
-        super().__init__(text, line, column)
 
     def __str__(self) -> str:
         return "IDENTIFIER"
@@ -41,9 +42,6 @@ class Whitespace(ProcessedToken):
     """
     Class which represents a whitespace.
     """
-
-    def __init__(self, text: str, line: int, column: int) -> None:
-        super().__init__(text, line, column)
 
     def __str__(self) -> str:
         if "" == self.text:
@@ -93,7 +91,7 @@ class ProcessedSourceFile:
         Get the tokenized/processed string of the Java file.
         :return: The processed string representation of the Java file.
         """
-        return f"{' '.join(map(lambda token: str(token), self.tokens))}\n"
+        return f"{' '.join(map(str, self.tokens))}\n"
 
     def __repr__(self) -> str:
         return self.tokenized_str()
@@ -179,7 +177,7 @@ def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
         for file in files:
             if not file.endswith(".java"):
                 continue
-            with open(Path(subdir) / Path(file)) as file_stream:
+            with open(Path(subdir) / Path(file), encoding="utf-8") as file_stream:
                 content = file_stream.read()
                 tokens = _tokenize_java_code(content)
                 processed_java_file = ProcessedSourceFile(
