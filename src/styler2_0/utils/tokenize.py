@@ -63,7 +63,7 @@ class Whitespace(ProcessedToken):
             case [" ", *_]:
                 return f"{len(whitespace)}_SP"
             case _:
-                ValueError("There was a non-whitespace char passed.")
+                raise ValueError("There was a non-whitespace char passed.")
 
 
 class ProcessedSourceFile:
