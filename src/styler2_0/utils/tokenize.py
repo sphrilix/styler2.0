@@ -11,6 +11,17 @@ from streamerate import stream
 from src.antlr.JavaLexer import JavaLexer
 from styler2_0.utils.checkstyle import CheckstyleFileReport
 
+#######################################################################################
+# DISCLAIMER!
+# The preprocessing is not entirely identical because in the Styler preprocessing, 2
+# bugs were identified:
+#
+# 1. Whitespaces before line breaks were simply omitted.
+#
+# 2. If a whitespace contained tabs and spaces, it was encoded only with the first
+#   type and the second one was simply omitted.
+#######################################################################################
+
 
 @total_ordering
 class ProcessedToken:
@@ -85,7 +96,6 @@ class Whitespace(ProcessedToken):
     def _process_whitespace_type(self, whitespace: str) -> str:
         match list(whitespace):
             case ["\n", *_]:
-                print(self.indent)
                 return (
                     f"{len(whitespace)}_NL{f'_{self.indent}' * int(bool(self.indent))}"
                 )
