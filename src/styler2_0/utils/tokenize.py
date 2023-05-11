@@ -9,7 +9,7 @@ from antlr4 import CommonTokenStream, InputStream
 from streamerate import stream
 
 from src.antlr.JavaLexer import JavaLexer
-from styler2_0.utils.checkstyle import CheckstyleFileReport
+from styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
 
 #######################################################################################
 # DISCLAIMER!
@@ -137,12 +137,19 @@ class ProcessedSourceFile:
         # remove the eof if presents in tokens.
         self._remove_eof()
 
+        self.non_ws_tokens = (
+            stream(self.tokens)
+            .filter(lambda token: not isinstance(token, Whitespace))
+            .to_list()
+        )
+
         # places where possible placeholder for whitespaces.
         self._insert_placeholder_ws()
 
         # insert deltas of indentation after linebreak
-        self._insert_deltas_on_linebreak()
+        # self._insert_deltas_on_linebreaks()
 
+        # if report is given insert it into token sequence
         if report:
             self._insert_checkstyle_report(report)
 
@@ -186,17 +193,11 @@ class ProcessedSourceFile:
             self.tokens = self.tokens[:-1]
 
     def _insert_checkstyle_report(self, report: CheckstyleFileReport) -> None:
+        assert report.path == self.file_name, "Report and source file path must match."
+
         for violation in report.violations:
-            start_ctx = (
-                stream(self.tokens)
-                .filter(lambda token, vl=violation.line: token.line == vl)
-                .next()
-            )
-            end_ctx = (
-                stream(self.tokens)
-                .filter(lambda token, vl=violation.line: token.line > vl)
-                .next()
-            )
+            start_ctx, end_ctx = self._calc_ctx(violation)
+
             start_style_token = CheckstyleToken(
                 violation.type.value, start_ctx.line, start_ctx.column, True
             )
@@ -213,7 +214,109 @@ class ProcessedSourceFile:
                 + self.tokens[end_ctx_idx:]
             )
 
-    def _insert_deltas_on_linebreak(self) -> None:
+    def _calc_ctx(
+        self, violation: Violation, ctx_line: int = 6, ctx_around: int = 1
+    ) -> (ProcessedToken, ProcessedToken):
+        (
+            ctx_begin,
+            ctx_begin_token_idx,
+            ctx_end,
+            ctx_end_token_idx,
+        ) = self._calc_line_ctx(ctx_line, violation)
+
+        violation_start_idx, violation_end_idx = self._calc_col_ctx(
+            ctx_around,
+            ctx_begin,
+            ctx_begin_token_idx,
+            ctx_end,
+            ctx_end_token_idx,
+            violation,
+        )
+
+        return (
+            self.non_ws_tokens[violation_start_idx],
+            self.non_ws_tokens[violation_end_idx],
+        )
+
+    def _calc_col_ctx(
+        self,
+        ctx_around: int,
+        ctx_begin: int,
+        ctx_begin_token_idx: int,
+        ctx_end: int,
+        ctx_end_token_idx: int,
+        violation: Violation,
+    ) -> (int, int):
+        violation_ctx_idx = -1
+
+        # if we encounter a violation with column information
+        vl_col = violation.column
+        if vl_col > 0:
+            if vl_col <= self.non_ws_tokens[ctx_begin].column:
+                violation_ctx_idx = ctx_begin
+            elif vl_col >= self.non_ws_tokens[ctx_end - 1].column:
+                violation_ctx_idx = ctx_end - 1
+            else:
+                idx = ctx_begin_token_idx
+                for token in self.non_ws_tokens[ctx_begin:ctx_end]:
+                    if token.column <= vl_col:
+                        violation_ctx_idx = idx
+                    idx += 1
+            violation_start_idx = max(0, violation_ctx_idx - ctx_around)
+            violation_end_idx = min(
+                len(self.non_ws_tokens), violation_ctx_idx + ctx_around
+            )
+        else:
+            if ctx_begin > -1:
+                violation_start_idx = max(0, ctx_begin_token_idx - ctx_around)
+                violation_end_idx = min(
+                    len(self.non_ws_tokens), ctx_end_token_idx + ctx_around
+                )
+            else:
+                for idx, token in enumerate(self.non_ws_tokens):
+                    if token.line < violation.line:
+                        violation_ctx_idx = idx
+                violation_start_idx = max(0, violation_ctx_idx - ctx_around)
+                violation_end_idx = min(
+                    len(self.non_ws_tokens), violation_ctx_idx + ctx_around
+                )
+        return violation_start_idx, violation_end_idx
+
+    def _calc_line_ctx(
+        self, ctx_line: int, violation: Violation
+    ) -> (int, int, int, int):
+        ctx_begin = len(self.non_ws_tokens)
+        ctx_end = 0
+        ctx_begin_token_idx = -1
+        ctx_end_token_idx = -1
+        token_start = False
+
+        # calc starting and end token idx according to context.
+        for idx, token in enumerate(self.non_ws_tokens):
+            if violation.line - ctx_line <= token.line <= violation.line + ctx_line:
+                ctx_begin_token_idx = min(idx, ctx_begin)
+                ctx_end_token_idx = max(idx, ctx_end)
+            if not token_start and violation.line == token.line:
+                token_start = True
+                ctx_begin = idx
+            if token_start and violation.line < token.line:
+                token_start = False
+                ctx_end = idx
+
+        # normalize start and end token idx
+        ctx_begin_token_idx = max(0, ctx_begin_token_idx - 1)
+        ctx_end_token_idx = min(len(self.non_ws_tokens), ctx_end_token_idx + 1)
+        if ctx_end < 0:
+            ctx_end_token_idx = ctx_begin_token_idx
+
+        return (
+            ctx_begin,
+            ctx_begin_token_idx,
+            ctx_end,
+            ctx_end_token_idx,
+        )
+
+    def _insert_deltas_on_linebreaks(self) -> None:
         linebreaks = (
             stream(self.tokens)
             .filter(lambda token: isinstance(token, Whitespace))
