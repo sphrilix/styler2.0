@@ -25,6 +25,10 @@ CHECKSTYLE_CONF_REG = re.compile(r".*checkstyle.*\.xml")
 
 
 class ViolationType(Enum):
+    """
+    Supported checkstyle violations.
+    """
+
     ANNOTATION_LOCATION = "AnnotationLocation"
     ANNOTATION_ON_SAME_LINE = "AnnotationOnSameLine"
     COMMENTS_INDENTATION = "CommentsIndentation"
@@ -64,6 +68,10 @@ class ViolationType(Enum):
 
 @dataclass(eq=True, frozen=True)
 class Violation:
+    """
+    Class representing a violation and its position.
+    """
+
     type: ViolationType
     line: int
     column: int
@@ -71,6 +79,10 @@ class Violation:
 
 @dataclass(eq=True, frozen=True)
 class CheckstyleFileReport:
+    """
+    Checkstyle report for a file.
+    """
+
     path: Path
     violations: frozenset[Violation]
 
