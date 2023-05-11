@@ -107,6 +107,15 @@ class Whitespace(ProcessedToken):
                 raise ValueError("There was a non-whitespace char passed.")
 
 
+class Comment(ProcessedToken):
+    """
+    Class representing a comment token.
+    """
+
+    def __str__(self) -> str:
+        return "COMMENT"
+
+
 class CheckstyleToken(ProcessedToken):
     """
     Token representing a checkstyle violation.
@@ -147,7 +156,7 @@ class ProcessedSourceFile:
         self._insert_placeholder_ws()
 
         # insert deltas of indentation after linebreak
-        # self._insert_deltas_on_linebreaks()
+        self._insert_deltas_on_linebreaks()
 
         # if report is given insert it into token sequence
         if report:
@@ -217,6 +226,19 @@ class ProcessedSourceFile:
     def _calc_ctx(
         self, violation: Violation, ctx_line: int = 6, ctx_around: int = 1
     ) -> (ProcessedToken, ProcessedToken):
+        """
+        Currently reimplementation of styler checkstyle context calculation.
+
+        DISCLAIMER!
+        Since the source code and the paper do not contain any specification how this
+        is done, it cannot be guaranteed whether this is 100% correct.
+
+        :param violation: Violation which should be inserted.
+        :param ctx_line: How many lines should be taken into account.
+        :param ctx_around: Amount of tokens around violation which should be taken
+                           into account.
+        :return: Returns the starting and ending token of the context.
+        """
         (
             ctx_begin,
             ctx_begin_token_idx,
@@ -325,16 +347,19 @@ class ProcessedSourceFile:
         )
         for linebreak in linebreaks:
             this_line = linebreak.line
-            indent_this_line = self._get_first_non_ws_token_of_line(this_line).column
-            indent_next_line = self._get_first_non_ws_token_of_line(
+            indent_this_line = self._calculate_indent_of_line(this_line)
+            indent_next_line = self._calculate_indent_of_line(
                 min(self.tokens[-1].line, this_line + 1)
-            ).column
+            )
             delta = indent_next_line - indent_this_line
-            print(delta)
             if delta < 0:
                 linebreak.indent = "DD"
             if delta > 0:
                 linebreak.indent = "ID"
+
+    def _calculate_indent_of_line(self, line: int) -> int:
+        first_non_ws_token = self._get_first_non_ws_token_of_line(line)
+        return first_non_ws_token.column if first_non_ws_token else 0
 
     def _get_first_non_ws_token_of_line(self, line: int) -> ProcessedToken:
         return next(
@@ -377,6 +402,8 @@ class RawToken:
                 return Identifier(self.text, self.line, self.column)
             case "WS":
                 return Whitespace(self.text, self.line, self.column)
+            case "COMMENT":
+                return Comment(self.text, self.line, self.column)
             case _:
                 return ProcessedToken(self.text, self.line, self.column)
 
@@ -429,6 +456,7 @@ def tokenize_with_reports(
             if not source_file.name.endswith(".java"):
                 continue
             content = source_file.read()
+            print(source_file)
             tokens = _tokenize_java_code(content)
             processed_file = ProcessedSourceFile(report.path, tokens, report)
             processed_files.append(processed_file)
