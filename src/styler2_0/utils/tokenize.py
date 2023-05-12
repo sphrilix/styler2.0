@@ -231,7 +231,8 @@ class ProcessedSourceFile:
 
         DISCLAIMER!
         Since the source code and the paper do not contain any specification how this
-        is done, it cannot be guaranteed whether this is 100% correct.
+        is done, it cannot be guaranteed whether this is 100% correct. (Assuming it is
+        not 100% identical)
 
         :param violation: Violation which should be inserted.
         :param ctx_line: How many lines should be taken into account.
@@ -255,9 +256,21 @@ class ProcessedSourceFile:
             violation,
         )
 
+        # normalize tokens according to indexes
+        start_ctx_token = self.non_ws_tokens[max(0, violation_start_idx)]
+
+        # if ctx length is bigger than non whitespace token set context end to
+        # first whitespace after last non whitespace token
+        if violation_end_idx == len(self.non_ws_tokens):
+            end_ctx_token = self.tokens[
+                self.tokens.index(self.non_ws_tokens[violation_end_idx - 1]) + 1
+            ]
+        else:
+            end_ctx_token = self.non_ws_tokens[violation_end_idx]
+
         return (
-            self.non_ws_tokens[violation_start_idx],
-            self.non_ws_tokens[violation_end_idx],
+            start_ctx_token,
+            end_ctx_token,
         )
 
     def _calc_col_ctx(
@@ -302,6 +315,7 @@ class ProcessedSourceFile:
                 violation_end_idx = min(
                     len(self.non_ws_tokens), violation_ctx_idx + ctx_around
                 )
+
         return violation_start_idx, violation_end_idx
 
     def _calc_line_ctx(
