@@ -32,7 +32,7 @@ pytest-sugar = "^0.9.6"
 line-length = 88
 target_version = ["py311"]
 include = '\.pyi?$'
-force-exclude = "src/antlr/JavaLexer.py"
+force-exclude = "src/antlr/"
 
 
 [tool.isort]
@@ -94,7 +94,8 @@ exclude = [
     "venv",
     ".mypy_cache",
     ".pytest_cache",
-    "JavaLexer.py"
+    "JavaLexer.py",
+    "JavaParser.py"
 ]
 target-version = "py311"
 

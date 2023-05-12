@@ -423,7 +423,12 @@ class RawToken:
                 return ProcessedToken(self.text, self.line, self.column)
 
 
-def _tokenize_java_code(code: str) -> list[ProcessedToken]:
+def tokenize_java_code(code: str) -> list[ProcessedToken]:
+    """
+    Tokenize a given code snippet into ProcessedTokens.
+    :param code: The given code snippet.
+    :return: Returns the ProcessedTokens
+    """
     input_stream = InputStream(code)
     lexer = JavaLexer(input_stream)
     token_stream = CommonTokenStream(lexer)
@@ -449,7 +454,7 @@ def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
                 continue
             with open(Path(subdir) / Path(file), encoding="utf-8") as file_stream:
                 content = file_stream.read()
-                tokens = _tokenize_java_code(content)
+                tokens = tokenize_java_code(content)
                 processed_java_file = ProcessedSourceFile(
                     Path(subdir) / Path(file), tokens
                 )
@@ -472,7 +477,7 @@ def tokenize_with_reports(
                 continue
             content = source_file.read()
             print(source_file)
-            tokens = _tokenize_java_code(content)
+            tokens = tokenize_java_code(content)
             processed_file = ProcessedSourceFile(report.path, tokens, report)
             processed_files.append(processed_file)
     return processed_files
