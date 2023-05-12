@@ -74,7 +74,7 @@ class Violation:
 
     type: ViolationType
     line: int
-    column: int
+    column: int | None
 
 
 @dataclass(eq=True, frozen=True)
@@ -143,7 +143,9 @@ def _parse_violations(raw_violations: list[ET.Element]) -> frozenset[Violation]:
             lambda raw_violation: Violation(
                 ViolationType(_get_violation_name(raw_violation)),
                 int(raw_violation.attrib["line"]),
-                int(raw_violation.attrib.get("column", 0)),
+                int(raw_violation.attrib["line"])
+                if "column" in raw_violation.attrib
+                else None,
             )
         )
         .filter(lambda violation: violation.type != ViolationType.NOT_SUPPORTED)

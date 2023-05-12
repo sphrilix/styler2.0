@@ -285,8 +285,9 @@ class ProcessedSourceFile:
         violation_ctx_idx = -1
 
         # if we encounter a violation with column information
-        vl_col = violation.column
-        if vl_col > 0:
+
+        if violation.column:
+            vl_col = violation.column
             if vl_col <= self.non_ws_tokens[ctx_begin].column:
                 violation_ctx_idx = ctx_begin
             elif vl_col >= self.non_ws_tokens[ctx_end - 1].column:
