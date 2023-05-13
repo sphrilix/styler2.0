@@ -55,14 +55,14 @@ def returns_valid_java(func: Callable[..., ...]) -> Callable[..., ...]:
     :return: Returns the decorated function.
     """
 
-    def inner(*args: ..., **kwargs: ...) -> ...:
+    def _returns_valid_java_decorator(*args: ..., **kwargs: ...) -> ...:
         return_values = func(*args, **kwargs)
         for return_value in return_values:
             if type(return_value) == str and not is_parseable(return_value):
                 raise NonParseableException(f"Not valid java code: {return_value}")
         return return_values
 
-    return inner
+    return _returns_valid_java_decorator
 
 
 def is_parseable(code: str) -> bool:
