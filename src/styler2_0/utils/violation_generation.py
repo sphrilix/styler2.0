@@ -3,12 +3,12 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Any
 
 from streamerate import stream
 
-from src.styler2_0.utils.java import returns_valid_java
+from src.styler2_0.utils.java import NonParseableException, returns_valid_java
 from src.styler2_0.utils.tokenize import Whitespace, tokenize_java_code
+from styler2_0.utils.utils import retry
 
 
 def _insert(char: str, string: str) -> str:
@@ -30,7 +30,7 @@ class Operation(Enum):
     DELETE_SPACE = partial(_delete, " ")
     DELETE_NL = partial(_delete, "\n")
 
-    def __call__(self, *args: str, **kwargs: tuple[str, Any] | None) -> str:
+    def __call__(self, *args: str, **kwargs: ...) -> str:
         return self.value(args[0])
 
 
@@ -51,13 +51,18 @@ class ViolationGenerator(ABC):
         self.checkstyle_config = checkstyle_config
         self.checkstyle_version = checkstyle_version
 
-    @abstractmethod
+    @retry(n=10, exceptions=NonParseableException)
     @returns_valid_java
     def generate_violation(self) -> (str, str):
         """
         Generate parseable code with exactly one violation in it.
         :return: Returns original code, altered code with exactly one exception
         """
+        return self._generate_violation()
+
+    @abstractmethod
+    def _generate_violation(self) -> (str, str):
+        pass
 
 
 class RandomGenerator(ViolationGenerator):
@@ -65,8 +70,7 @@ class RandomGenerator(ViolationGenerator):
     Generator for generating violations randomly.
     """
 
-    @returns_valid_java
-    def generate_violation(self) -> (str, str):
+    def _generate_violation(self) -> (str, str):
         operation = _pick_random_operation()
         tokens = tokenize_java_code(self.non_violated_source)
         random_token = random.choice(
