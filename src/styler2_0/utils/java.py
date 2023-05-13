@@ -33,7 +33,7 @@ class SyntaxErrorListener(ErrorListener):
         raise NonParseableException()
 
 
-def ensure_return_of_valid_java_code(func: Callable[..., ...]) -> Callable[..., ...]:
+def returns_valid_java(func: Callable[..., ...]) -> Callable[..., ...]:
     """
     Decorator ensuring a decorated  function returns strings those strings are
     actually parseable.

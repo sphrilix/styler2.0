@@ -7,7 +7,7 @@ from typing import Any
 
 from streamerate import stream
 
-from src.styler2_0.utils.java import ensure_return_of_valid_java_code
+from src.styler2_0.utils.java import returns_valid_java
 from src.styler2_0.utils.tokenize import Whitespace, tokenize_java_code
 
 
@@ -52,11 +52,11 @@ class ViolationGenerator(ABC):
         self.checkstyle_version = checkstyle_version
 
     @abstractmethod
-    @ensure_return_of_valid_java_code
+    @returns_valid_java
     def generate_violation(self) -> (str, str):
         """
         Generate parseable code with exactly one violation in it.
-        :return: Returns original code, altered code
+        :return: Returns original code, altered code with exactly one exception
         """
 
 
@@ -65,7 +65,7 @@ class RandomGenerator(ViolationGenerator):
     Generator for generating violations randomly.
     """
 
-    @ensure_return_of_valid_java_code
+    @returns_valid_java
     def generate_violation(self) -> (str, str):
         operation = _pick_random_operation()
         tokens = tokenize_java_code(self.non_violated_source)
