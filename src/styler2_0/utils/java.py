@@ -1,11 +1,25 @@
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.Token import CommonToken
+from streamerate import stream
 
 from src.antlr.JavaLexer import JavaLexer
 from src.antlr.JavaParser import JavaParser
+
+
+@dataclass(eq=True, frozen=True)
+class Lexeme:
+    """
+    Raw token passed from the lexer.
+    """
+
+    symbolic_name: str
+    text: str
+    line: int
+    column: int
 
 
 class NonParseableException(Exception):
@@ -70,3 +84,29 @@ def is_parseable(code: str) -> bool:
     except NonParseableException:
         return False
     return True
+
+
+def lex_java(code: str) -> list[Lexeme]:
+    """
+    Lex the given code snippet and return a list of lexemes.
+    :param code: The given code snippet.
+    :return: Returns the lexemes.
+    """
+    input_stream = InputStream(code)
+    lexer = JavaLexer(input_stream)
+    lexer.removeErrorListeners()
+    lexer.addErrorListener(SyntaxErrorListener())
+    token_stream = CommonTokenStream(lexer)
+    token_stream.fill()
+    return (
+        stream(token_stream.tokens)
+        .map(
+            lambda common: Lexeme(
+                symbolic_name=lexer.symbolicNames[common.type],
+                line=common.line,
+                column=common.column,
+                text=common.text,
+            )
+        )
+        .to_list()
+    )

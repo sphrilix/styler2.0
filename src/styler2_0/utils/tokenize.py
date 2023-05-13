@@ -1,14 +1,11 @@
 import os
 import re
-from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
 from typing import Any
 
-from antlr4 import CommonTokenStream, InputStream
 from streamerate import stream
 
-from src.antlr.JavaLexer import JavaLexer
 from styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
 
 #######################################################################################
@@ -21,6 +18,7 @@ from styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
 # 2. If a whitespace contained tabs and spaces, it was encoded only with the first
 #   type and the second one was simply omitted.
 #######################################################################################
+from styler2_0.utils.java import Lexeme, lex_java
 
 
 @total_ordering
@@ -396,31 +394,20 @@ class ContainsStr(str):
         return self.__contains__(other)
 
 
-@dataclass(eq=True, frozen=True)
-class RawToken:
+def _process_raw_token(raw_token: Lexeme) -> ProcessedToken:
     """
-    Raw token passed from the lexer.
+    Turn the token into a ProcessedToken which can than be used in further actions.
+    :return: Returns the "processed" RawToken.
     """
-
-    symbolic_name: str
-    text: str
-    line: int
-    column: int
-
-    def process(self) -> ProcessedToken:
-        """
-        Turn the token into a ProcessedToken which can than be used in further actions.
-        :return: Returns the "processed" RawToken.
-        """
-        match ContainsStr(self.symbolic_name):
-            case "IDENTIFIER" | "LITERAL":
-                return Identifier(self.text, self.line, self.column)
-            case "WS":
-                return Whitespace(self.text, self.line, self.column)
-            case "COMMENT":
-                return Comment(self.text, self.line, self.column)
-            case _:
-                return ProcessedToken(self.text, self.line, self.column)
+    match ContainsStr(raw_token.symbolic_name):
+        case "IDENTIFIER" | "LITERAL":
+            return Identifier(raw_token.text, raw_token.line, raw_token.column)
+        case "WS":
+            return Whitespace(raw_token.text, raw_token.line, raw_token.column)
+        case "COMMENT":
+            return Comment(raw_token.text, raw_token.line, raw_token.column)
+        case _:
+            return ProcessedToken(raw_token.text, raw_token.line, raw_token.column)
 
 
 def tokenize_java_code(code: str) -> list[ProcessedToken]:
@@ -429,16 +416,7 @@ def tokenize_java_code(code: str) -> list[ProcessedToken]:
     :param code: The given code snippet.
     :return: Returns the ProcessedTokens
     """
-    input_stream = InputStream(code)
-    lexer = JavaLexer(input_stream)
-    token_stream = CommonTokenStream(lexer)
-    token_stream.fill()
-    return [
-        RawToken(
-            lexer.symbolicNames[token.type], token.text, token.line, token.column
-        ).process()
-        for token in token_stream.tokens
-    ]
+    return stream(lex_java(code)).map(_process_raw_token).to_list()
 
 
 def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
