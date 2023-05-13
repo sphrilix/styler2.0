@@ -1,8 +1,6 @@
 import os
 import re
-from functools import total_ordering
 from pathlib import Path
-from typing import Any
 
 from streamerate import stream
 
@@ -21,8 +19,7 @@ from styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
 from styler2_0.utils.java import Lexeme, lex_java
 
 
-@total_ordering
-class ProcessedToken:
+class Token:
     """
     Base class for a processed token coming from the lexer.
     """
@@ -42,23 +39,8 @@ class ProcessedToken:
         """
         return self.text
 
-    def __lt__(self, other: Any) -> bool:
-        assert isinstance(other, ProcessedToken)
-        if self.line == other.line:
-            return self.column < other.column
-        return self.line < other.line
 
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, ProcessedToken):
-            return False
-        return (
-            self.text == other.text
-            and self.line == other.line
-            and self.column == other.column
-        )
-
-
-class Identifier(ProcessedToken):
+class Identifier(Token):
     """
     Class which represents Identifier/Literals
     """
@@ -67,7 +49,7 @@ class Identifier(ProcessedToken):
         return "IDENTIFIER"
 
 
-class Whitespace(ProcessedToken):
+class Whitespace(Token):
     """
     Class which represents a whitespace.
     """
@@ -105,7 +87,7 @@ class Whitespace(ProcessedToken):
                 raise ValueError("There was a non-whitespace char passed.")
 
 
-class Comment(ProcessedToken):
+class Comment(Token):
     """
     Class representing a comment token.
     """
@@ -114,7 +96,7 @@ class Comment(ProcessedToken):
         return "COMMENT"
 
 
-class CheckstyleToken(ProcessedToken):
+class CheckstyleToken(Token):
     """
     Token representing a checkstyle violation.
     """
@@ -135,7 +117,7 @@ class ProcessedSourceFile:
     def __init__(
         self,
         file_name: Path,
-        tokens: list[ProcessedToken],
+        tokens: list[Token],
         report: CheckstyleFileReport = None,
     ) -> None:
         self.file_name = file_name
@@ -223,7 +205,7 @@ class ProcessedSourceFile:
 
     def _calc_ctx(
         self, violation: Violation, ctx_line: int = 6, ctx_around: int = 1
-    ) -> (ProcessedToken, ProcessedToken):
+    ) -> (Token, Token):
         """
         Currently reimplementation of styler checkstyle context calculation.
 
@@ -374,7 +356,7 @@ class ProcessedSourceFile:
         first_non_ws_token = self._get_first_non_ws_token_of_line(line)
         return first_non_ws_token.column if first_non_ws_token else 0
 
-    def _get_first_non_ws_token_of_line(self, line: int) -> ProcessedToken:
+    def _get_first_non_ws_token_of_line(self, line: int) -> Token:
         return next(
             (
                 token
@@ -394,7 +376,7 @@ class ContainsStr(str):
         return self.__contains__(other)
 
 
-def _process_raw_token(raw_token: Lexeme) -> ProcessedToken:
+def _process_raw_token(raw_token: Lexeme) -> Token:
     """
     Turn the token into a ProcessedToken which can than be used in further actions.
     :return: Returns the "processed" RawToken.
@@ -407,16 +389,37 @@ def _process_raw_token(raw_token: Lexeme) -> ProcessedToken:
         case "COMMENT":
             return Comment(raw_token.text, raw_token.line, raw_token.column)
         case _:
-            return ProcessedToken(raw_token.text, raw_token.line, raw_token.column)
+            return Token(raw_token.text, raw_token.line, raw_token.column)
 
 
-def tokenize_java_code(code: str) -> list[ProcessedToken]:
+def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
+    padded_tokens = []
+    for token, suc in zip(tokens[:-1], tokens[1:], strict=True):
+        padded_tokens.append(token)
+        if not (isinstance(token, Whitespace) or isinstance(suc, Whitespace)):
+            padded_tokens.append(Whitespace("", token.line, suc.column))
+    padded_tokens.append(tokens[-1])
+    last_token = padded_tokens[-1]
+    if not isinstance(last_token, Whitespace):
+        padded_tokens.append(
+            Whitespace(
+                "",
+                last_token.line,
+                last_token.column + len(last_token.de_tokenize()),
+            )
+        )
+    return padded_tokens
+
+
+def tokenize_java_code(code: str) -> list[Token]:
     """
     Tokenize a given code snippet into ProcessedTokens.
     :param code: The given code snippet.
     :return: Returns the ProcessedTokens
     """
-    return stream(lex_java(code)).map(_process_raw_token).to_list()
+    return _insert_placeholder_ws(
+        stream(lex_java(code)).map(_process_raw_token).to_list()
+    )
 
 
 def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:

@@ -3,13 +3,13 @@ from pathlib import Path
 from src.styler2_0.utils.tokenize import (
     Identifier,
     ProcessedSourceFile,
-    ProcessedToken,
+    Token,
     Whitespace,
 )
 
 
 def test_pad_source_file() -> None:
-    tokens: list[ProcessedToken] = [
+    tokens: list[Token] = [
         Identifier("Test", 0, 0),
         Identifier("Test2", 0, 4),
         Whitespace("", 0, 4),
