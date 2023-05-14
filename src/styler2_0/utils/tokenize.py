@@ -4,7 +4,7 @@ from pathlib import Path
 
 from streamerate import stream
 
-from styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
+from styler2_0.utils.checkstyle import CheckstyleReport, Violation
 
 #######################################################################################
 # DISCLAIMER!
@@ -118,7 +118,7 @@ class ProcessedSourceFile:
         self,
         file_name: Path,
         tokens: list[Token],
-        report: CheckstyleFileReport = None,
+        report: CheckstyleReport = None,
     ) -> None:
         self.file_name = file_name
         self.tokens = tokens
@@ -181,7 +181,7 @@ class ProcessedSourceFile:
         if self.tokens[-1].text == "<EOF>":
             self.tokens = self.tokens[:-1]
 
-    def _insert_checkstyle_report(self, report: CheckstyleFileReport) -> None:
+    def _insert_checkstyle_report(self, report: CheckstyleReport) -> None:
         assert report.path == self.file_name, "Report and source file path must match."
 
         for violation in report.violations:
@@ -444,7 +444,7 @@ def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
 
 
 def tokenize_with_reports(
-    reports: frozenset[CheckstyleFileReport],
+    reports: frozenset[CheckstyleReport],
 ) -> list[ProcessedSourceFile]:
     """
     Tokenize a given checkstyle report.

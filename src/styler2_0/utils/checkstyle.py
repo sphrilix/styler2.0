@@ -78,12 +78,12 @@ class Violation:
 
 
 @dataclass(eq=True, frozen=True)
-class CheckstyleFileReport:
+class CheckstyleReport:
     """
     Checkstyle report for a file.
     """
 
-    path: Path
+    path: Path | None
     violations: frozenset[Violation]
 
 
@@ -95,9 +95,7 @@ def _find_checkstyle_config(directory: Path) -> Path:
     raise ValueError("Given directory does not contain a checkstyle config!")
 
 
-def run_checkstyle_on_dir(
-    directory: Path, version: str
-) -> frozenset[CheckstyleFileReport]:
+def run_checkstyle_on_dir(directory: Path, version: str) -> frozenset[CheckstyleReport]:
     """
     Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
     :param directory: The directory of the Java project.
@@ -122,12 +120,12 @@ def _build_path_to_checkstyle_jar(version: str) -> Path:
     return Path(CHECKSTYLE_DIR) / CHECKSTYLE_JAR_NAME.format(version)
 
 
-def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleFileReport]:
+def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleReport]:
     root = ET.fromstring(report)
     return frozenset(
         stream(list(root))
         .map(
-            lambda file: CheckstyleFileReport(
+            lambda file: CheckstyleReport(
                 Path(file.attrib["name"]), _parse_violations(list(file))
             )
         )
