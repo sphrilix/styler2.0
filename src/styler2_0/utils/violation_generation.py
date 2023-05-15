@@ -1,14 +1,13 @@
 import random
 from abc import ABC, abstractmethod
 from enum import Enum
-from functools import partial
 from pathlib import Path
 
 from streamerate import stream
 
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
-from src.styler2_0.utils.tokenize import Whitespace, tokenize_java_code
-from styler2_0.utils.utils import retry
+from src.styler2_0.utils.tokenize import Token, Whitespace
+from src.styler2_0.utils.utils import retry
 
 
 def _insert(char: str, string: str) -> str:
@@ -19,23 +18,90 @@ def _delete(char: str, string: str) -> str:
     return string.replace(char, "", 1)
 
 
-class Operation(Enum):
+class OperationNonApplicableException(Exception):
+    """
+    Exception that is raised whenever an operator is not applicable to the
+    given code snippet.
+    """
+
+
+class Operation(ABC):
+    """
+    Operation applicable to code.
+    """
+
+    def __call__(self, token: Token) -> None:
+        if not self.is_applicable(token):
+            raise OperationNonApplicableException("Operation not applicable on tokens.")
+        self._apply_to_token(token)
+
+    @abstractmethod
+    def _apply(self, code: str) -> str:
+        pass
+
+    def _apply_to_token(self, token: Token) -> None:
+        token.text = self._apply(token.text)
+
+    def is_applicable(self, token: Token) -> bool:
+        """
+        Determines if the operator is applicable to the given token.
+        :param token: Token to be checked.
+        :return: Returns True if applicable else False.
+        """
+        return True
+
+
+class CharOperation(Operation, ABC):
+    """
+    Operation altering a single char.
+    """
+
+    def __init__(self, char: str) -> None:
+        self.char = char
+
+    def is_applicable(self, token: Token) -> bool:
+        return isinstance(token, Whitespace)
+
+
+class DeleteOperation(CharOperation):
+    """
+    Deletion of a character operation.
+    """
+
+    def _apply(self, code: str) -> str:
+        return _delete(self.char, code)
+
+    def is_applicable(self, token: Token) -> bool:
+        return super().is_applicable(token) and self.char in token.text
+
+
+class InsertOperation(CharOperation):
+    """
+    Insertion of a character operator.
+    """
+
+    def _apply(self, code: str) -> str:
+        return _insert(self.char, code)
+
+
+class Operations(Enum):
     """
     Enum of operations that can be performed.
     """
 
-    INSERT_SPACE = partial(_insert, " ")
-    INSERT_TAB = partial(_insert, "\t")
-    INSERT_NL = partial(_insert, "\n")
-    DELETE_SPACE = partial(_delete, " ")
-    DELETE_NL = partial(_delete, "\n")
+    INSERT_SPACE = InsertOperation(" ")
+    INSERT_TAB = InsertOperation("\t")
+    INSERT_NL = InsertOperation("\n")
+    DELETE_TAB = DeleteOperation("\t")
+    DELETE_SPACE = DeleteOperation(" ")
+    DELETE_NL = DeleteOperation("\n")
 
-    def __call__(self, *args: str, **kwargs: ...) -> str:
-        return self.value(args[0])
+    def __call__(self, code: str) -> str:
+        return self.value(code)
 
 
-def _pick_random_operation() -> Operation:
-    return random.choice(list(Operation))
+def _pick_random_operation() -> Operations:
+    return random.choice(list(Operations))
 
 
 class ViolationGenerator(ABC):
@@ -45,7 +111,10 @@ class ViolationGenerator(ABC):
     """
 
     def __init__(
-        self, non_violated_source: str, checkstyle_config: Path, checkstyle_version: str
+        self,
+        non_violated_source: list[Token],
+        checkstyle_config: Path,
+        checkstyle_version: str,
     ) -> None:
         self.non_violated_source = non_violated_source
         self.checkstyle_config = checkstyle_config
@@ -71,13 +140,13 @@ class RandomGenerator(ViolationGenerator):
     """
 
     def _generate_violation(self) -> (str, str):
-        operation = _pick_random_operation()
-        tokens = tokenize_java_code(self.non_violated_source)
+        operation = _pick_random_operation().value()
         random_token = random.choice(
-            stream(tokens).filter(lambda token: isinstance(token, Whitespace)).to_list()
+            stream(self.non_violated_source)
+            .filter(lambda token: operation.is_applicable(token))
+            .to_list()
         )
-        random_token.text = operation(random_token.text)
-
+        operation(random_token)
         return self.non_violated_source, "".join(
-            stream(tokens).map(lambda token: token.de_tokenize())
+            stream(self.non_violated_source).map(str)
         )

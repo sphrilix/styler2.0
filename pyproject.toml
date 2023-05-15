@@ -10,6 +10,7 @@ packages = [{include = "styler2_0", from = "src"}]
 python = "~3.11"
 antlr4-python3-runtime = "^4.12.0"
 pyxtension = "^1.16.1"
+tqdm = "^4.65.0"
 
 
 [tool.poetry.group.dev.dependencies]
