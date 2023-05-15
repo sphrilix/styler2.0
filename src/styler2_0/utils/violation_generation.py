@@ -1,7 +1,7 @@
 import os
 import random
 from abc import ABC, abstractmethod
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
 
 from streamerate import stream
@@ -167,7 +167,7 @@ class RandomGenerator(ViolationGenerator):
 
 
 class Protocol(Enum):
-    RANDOM = auto()
+    RANDOM = "RANDOM"
 
     def get_generator(
         self, non_violated_source: list[Token], checkstyle_config: Path, version: str
@@ -175,8 +175,9 @@ class Protocol(Enum):
         match self:
             case Protocol.RANDOM:
                 return RandomGenerator(non_violated_source, checkstyle_config, version)
-            case _:
-                raise ValueError()
+
+    def __str__(self) -> str:
+        return self.value
 
 
 def generate_n_violations(
@@ -187,9 +188,7 @@ def generate_n_violations(
     checkstyle_version: str,
     save_path: Path,
 ) -> None:
-    assert non_violated_sources.is_dir()
-    assert checkstyle_config.is_file()
-    assert save_path.is_dir()
+    os.makedirs(save_path, exist_ok=True)
     for i in tqdm(range(n)):
         non_violated_source_files = get_files_in_dir(
             non_violated_sources, suffix=".java"
@@ -202,7 +201,7 @@ def generate_n_violations(
         )
         non_violated, violated = generator.generate_violation()
         current_save_path = save_path / Path(str(i))
-        os.mkdir(current_save_path)
+        os.makedirs(current_save_path, exist_ok=True)
         non_violated_file_name = Path(current_file.name)
         violated_file_name = Path(f"Violated{current_file.name}")
         save_content_to_file(current_save_path / non_violated_file_name, non_violated)
