@@ -1,4 +1,6 @@
+import os
 from collections.abc import Callable
+from pathlib import Path
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -46,3 +48,41 @@ def retry(
         return _retry_decorator_wrapper
 
     return _retry_decorator
+
+
+def save_content_to_file(file: Path, content: str) -> None:
+    """
+    Saves the given content to the specified file.
+    :param file: The given file.
+    :param content: The given content.
+    :return: None
+    """
+    with open(file, "w", encoding="utf-8") as file_stream:
+        file_stream.write(content)
+
+
+def read_content_of_file(file: Path, encoding: str = "utf-8") -> str:
+    """
+    Read the content of a file to str.
+    :param file: The given file.
+    :param encoding: The given encoding.
+    :return: Returns the file content as str.
+    """
+    with open(file, encoding=encoding) as file_stream:
+        return file_stream.read()
+
+
+def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:
+    """
+    Get files in given directory with the given suffix.
+    :param directory: The given directory.
+    :param suffix: The given suffix.
+    :return: Returns the files matching the suffix.
+    """
+    files_in_dir: list[Path] = []
+    for subdir, _, files in os.walk(directory):
+        for file in files:
+            if not suffix or file.endswith(suffix):
+                files_in_dir.append(Path(subdir) / Path(file))
+
+    return files_in_dir

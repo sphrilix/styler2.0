@@ -1,13 +1,20 @@
+import os
 import random
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import Enum, auto
 from pathlib import Path
 
 from streamerate import stream
+from tqdm import tqdm
 
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
-from src.styler2_0.utils.tokenize import Token, Whitespace
-from src.styler2_0.utils.utils import retry
+from src.styler2_0.utils.tokenize import Token, Whitespace, tokenize_java_code
+from src.styler2_0.utils.utils import (
+    get_files_in_dir,
+    read_content_of_file,
+    retry,
+    save_content_to_file,
+)
 
 
 def _insert(char: str, string: str) -> str:
@@ -112,25 +119,29 @@ class ViolationGenerator(ABC):
 
     def __init__(
         self,
-        non_violated_source: list[Token],
+        tokens: list[Token],
         checkstyle_config: Path,
         checkstyle_version: str,
     ) -> None:
-        self.non_violated_source = non_violated_source
+        self.tokens = tokens
         self.checkstyle_config = checkstyle_config
         self.checkstyle_version = checkstyle_version
 
-    @retry(n=10, exceptions=NonParseableException)
+    @retry(n=10, exceptions=(NonParseableException, OperationNonApplicableException))
     @returns_valid_java
     def generate_violation(self) -> (str, str):
         """
         Generate parseable code with exactly one violation in it.
         :return: Returns original code, altered code with exactly one exception
         """
-        return self._generate_violation()
+
+        non_violated = "".join(
+            stream(self.tokens).map(lambda token: token.de_tokenize())
+        )
+        return non_violated, self._generate_violation()
 
     @abstractmethod
-    def _generate_violation(self) -> (str, str):
+    def _generate_violation(self) -> str:
         pass
 
 
@@ -139,14 +150,60 @@ class RandomGenerator(ViolationGenerator):
     Generator for generating violations randomly.
     """
 
-    def _generate_violation(self) -> (str, str):
-        operation = _pick_random_operation().value()
-        random_token = random.choice(
-            stream(self.non_violated_source)
+    def _generate_violation(self) -> str:
+        operation = _pick_random_operation().value
+        applicable_tokens = (
+            stream(self.tokens)
             .filter(lambda token: operation.is_applicable(token))
             .to_list()
         )
+        if not applicable_tokens:
+            raise OperationNonApplicableException(
+                f"{operation} not applicable on token sequence."
+            )
+        random_token = random.choice(applicable_tokens)
         operation(random_token)
-        return self.non_violated_source, "".join(
-            stream(self.non_violated_source).map(str)
+        return "".join(stream(self.tokens).map(lambda token: token.de_tokenize()))
+
+
+class Protocol(Enum):
+    RANDOM = auto()
+
+    def get_generator(
+        self, non_violated_source: list[Token], checkstyle_config: Path, version: str
+    ) -> ViolationGenerator:
+        match self:
+            case Protocol.RANDOM:
+                return RandomGenerator(non_violated_source, checkstyle_config, version)
+            case _:
+                raise ValueError()
+
+
+def generate_n_violations(
+    n: int,
+    protocol: Protocol,
+    non_violated_sources: Path,
+    checkstyle_config: Path,
+    checkstyle_version: str,
+    save_path: Path,
+) -> None:
+    assert non_violated_sources.is_dir()
+    assert checkstyle_config.is_file()
+    assert save_path.is_dir()
+    for i in tqdm(range(n)):
+        non_violated_source_files = get_files_in_dir(
+            non_violated_sources, suffix=".java"
         )
+        current_file = random.choice(non_violated_source_files)
+        content = read_content_of_file(current_file)
+        tokens = tokenize_java_code(content)
+        generator = protocol.get_generator(
+            tokens, checkstyle_config, checkstyle_version
+        )
+        non_violated, violated = generator.generate_violation()
+        current_save_path = save_path / Path(str(i))
+        os.mkdir(current_save_path)
+        non_violated_file_name = Path(current_file.name)
+        violated_file_name = Path(f"Violated{current_file.name}")
+        save_content_to_file(current_save_path / non_violated_file_name, non_violated)
+        save_content_to_file(current_save_path / violated_file_name, violated)

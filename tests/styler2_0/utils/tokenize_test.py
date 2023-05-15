@@ -1,23 +1,19 @@
 from pathlib import Path
 
 from src.styler2_0.utils.tokenize import (
-    Identifier,
     ProcessedSourceFile,
-    Token,
     Whitespace,
+    tokenize_java_code,
 )
 
 
 def test_pad_source_file() -> None:
-    tokens: list[Token] = [
-        Identifier("Test", 0, 0),
-        Identifier("Test2", 0, 4),
-        Whitespace("", 0, 4),
-    ]
+    tokens = tokenize_java_code(
+        'public class Main {void test() {System.out.println("test");}}'
+    )
     processed_file = ProcessedSourceFile(Path("."), tokens)
-    assert len(processed_file.tokens) == 4
-    assert isinstance(processed_file.tokens[1], Whitespace)
-    assert isinstance(processed_file.tokens[3], Whitespace)
+    assert len(processed_file.tokens) == 40
+    assert isinstance(processed_file.tokens[-1], Whitespace)
 
 
 def test_parse_whitespace() -> None:

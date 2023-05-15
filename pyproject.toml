@@ -1,10 +1,14 @@
 [tool.poetry]
-name = "styler2.0"
+name = "styler2_0"
 version = "0.1.0"
 description = ""
 authors = ["Maximilian Jungwirth <maxi.jungwirth@gmail.com>"]
 readme = "README.adoc"
 packages = [{include = "styler2_0", from = "src"}]
+
+[tool.poetry.scripts]
+main = "styler2_0.main:main"
+
 
 [tool.poetry.dependencies]
 python = "~3.11"

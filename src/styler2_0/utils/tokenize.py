@@ -5,6 +5,7 @@ from pathlib import Path
 from streamerate import stream
 
 from styler2_0.utils.checkstyle import CheckstyleReport, Violation
+from styler2_0.utils.java import Lexeme, lex_java
 
 #######################################################################################
 # DISCLAIMER!
@@ -16,7 +17,6 @@ from styler2_0.utils.checkstyle import CheckstyleReport, Violation
 # 2. If a whitespace contained tabs and spaces, it was encoded only with the first
 #   type and the second one was simply omitted.
 #######################################################################################
-from styler2_0.utils.java import Lexeme, lex_java
 
 
 class Token:
@@ -123,17 +123,11 @@ class ProcessedSourceFile:
         self.file_name = file_name
         self.tokens = tokens
 
-        # remove the eof if presents in tokens.
-        self._remove_eof()
-
         self.non_ws_tokens = (
             stream(self.tokens)
             .filter(lambda token: not isinstance(token, Whitespace))
             .to_list()
         )
-
-        # places where possible placeholder for whitespaces.
-        self._insert_placeholder_ws()
 
         # insert deltas of indentation after linebreak
         self._insert_deltas_on_linebreaks()
@@ -158,28 +152,6 @@ class ProcessedSourceFile:
 
     def __repr__(self) -> str:
         return self.tokenized_str()
-
-    def _insert_placeholder_ws(self) -> None:
-        padded_tokens = []
-        for token, suc in zip(self.tokens[:-1], self.tokens[1:], strict=True):
-            padded_tokens.append(token)
-            if not (isinstance(token, Whitespace) or isinstance(suc, Whitespace)):
-                padded_tokens.append(Whitespace("", token.line, suc.column))
-        padded_tokens.append(self.tokens[-1])
-        last_token = padded_tokens[-1]
-        if not isinstance(last_token, Whitespace):
-            padded_tokens.append(
-                Whitespace(
-                    "",
-                    last_token.line,
-                    last_token.column + len(last_token.de_tokenize()),
-                )
-            )
-        self.tokens = padded_tokens
-
-    def _remove_eof(self):
-        if self.tokens[-1].text == "<EOF>":
-            self.tokens = self.tokens[:-1]
 
     def _insert_checkstyle_report(self, report: CheckstyleReport) -> None:
         assert report.path == self.file_name, "Report and source file path must match."
@@ -411,6 +383,12 @@ def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
     return padded_tokens
 
 
+def _remove_eof(tokens: list[Token]) -> list[Token]:
+    if tokens[-1].text == "<EOF>":
+        return tokens[:-1]
+    return tokens
+
+
 def tokenize_java_code(code: str) -> list[Token]:
     """
     Tokenize a given code snippet into ProcessedTokens.
@@ -418,7 +396,7 @@ def tokenize_java_code(code: str) -> list[Token]:
     :return: Returns the ProcessedTokens
     """
     return _insert_placeholder_ws(
-        stream(lex_java(code)).map(_process_raw_token).to_list()
+        _remove_eof(stream(lex_java(code)).map(_process_raw_token).to_list())
     )
 
 

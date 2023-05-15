@@ -3,8 +3,9 @@ from argparse import ArgumentParser
 from enum import Enum
 from pathlib import Path
 
-from utils.checkstyle import run_checkstyle_on_dir
-from utils.tokenize import tokenize_dir, tokenize_with_reports
+from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir
+from src.styler2_0.utils.tokenize import tokenize_dir, tokenize_with_reports
+from src.styler2_0.utils.violation_generation import Protocol, generate_n_violations
 
 
 class Tasks(Enum):
@@ -15,10 +16,18 @@ class Tasks(Enum):
         return self.value
 
 
-def _main(args: list[str]) -> int:
+def main(args: list[str]) -> int:
     arg_parser = _set_up_arg_parser()
     parsed_args = arg_parser.parse_args(args)
     print(parsed_args.task)
+    generate_n_violations(
+        10,
+        Protocol.RANDOM,
+        Path("/Users/maxij/PycharmProjects/styler2.0/data/"),
+        Path("/Users/maxij/PycharmProjects/styler2.0/data/checkstyle.xml"),
+        "8.0",
+        Path("/Users/maxij/PycharmProjects/styler2.0/tmp"),
+    )
     return 0
 
 
@@ -39,5 +48,5 @@ if __name__ == "__main__":
         Path("/Users/maxij/PycharmProjects/styler2.0/data"), "8.0"
     )
     print(sys.argv)
-    _main(sys.argv[1:])
+    main(sys.argv[1:])
     print(tokenize_with_reports(reports))
