@@ -17,7 +17,7 @@ def retry(
     n: int,
     default: T = None,
     exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
-) -> Callable[..., T]:
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Retry decorator, that retries the decorated function n times. If within those n
     steps no successful run occurred it raises a TooManyTriesException or if a
