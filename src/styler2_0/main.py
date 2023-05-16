@@ -61,6 +61,8 @@ def _check_presence_of_needed_args(
 def _set_up_arg_parser() -> ArgumentParser:
     arg_parser = ArgumentParser("")
     arg_parser.add_argument("--task", type=Tasks, choices=list(Tasks))
+
+    # Set up arguments for generating violations
     arg_parser.add_argument(
         "--protocol",
         type=Protocol,
