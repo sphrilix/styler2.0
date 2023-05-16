@@ -226,6 +226,8 @@ def generate_n_violations(
     :param delta: Max time this generation is allowed to run.
     :return:
     """
+
+    save_path = save_path / Path(str(protocol).lower())
     os.makedirs(save_path, exist_ok=True)
     with tqdm(total=n) as progress_bar:
         start = time.time()
