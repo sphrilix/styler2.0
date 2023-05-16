@@ -59,7 +59,7 @@ def _check_presence_of_needed_args(
 
 
 def _set_up_arg_parser() -> ArgumentParser:
-    arg_parser = ArgumentParser("")
+    arg_parser = ArgumentParser()
     arg_parser.add_argument("--task", type=Tasks, choices=list(Tasks))
 
     # Set up arguments for generating violations
@@ -89,5 +89,5 @@ if __name__ == "__main__":
         Path("/Users/maxij/PycharmProjects/styler2.0/data"), "8.0"
     )
     print(sys.argv)
-    main(sys.argv[1:])
+    # main(sys.argv[1:])
     print(tokenize_with_reports(reports))

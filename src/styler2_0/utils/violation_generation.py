@@ -45,8 +45,6 @@ class Operation(ABC):
     """
 
     def __call__(self, token: Token) -> None:
-        if not self.is_applicable(token):
-            raise OperationNonApplicableException("Operation not applicable on tokens.")
         self._apply_to_token(token)
 
     @abstractmethod
@@ -56,9 +54,10 @@ class Operation(ABC):
     def _apply_to_token(self, token: Token) -> None:
         token.text = self._apply(token.text)
 
-    def is_applicable(self, token: Token) -> bool:
+    def is_applicable(self, token: Token, context: tuple[Token, Token]) -> bool:
         """
         Determines if the operator is applicable to the given token.
+        :param context:
         :param token: Token to be checked.
         :return: Returns True if applicable else False.
         """
@@ -73,7 +72,7 @@ class CharOperation(Operation, ABC):
     def __init__(self, char: str) -> None:
         self.char = char
 
-    def is_applicable(self, token: Token) -> bool:
+    def is_applicable(self, token: Token, context: tuple[Token, Token]) -> bool:
         return isinstance(token, Whitespace)
 
 
@@ -85,8 +84,21 @@ class DeleteOperation(CharOperation):
     def _apply(self, code: str) -> str:
         return _delete(self.char, code)
 
-    def is_applicable(self, token: Token) -> bool:
-        return super().is_applicable(token) and self.char in token.text
+    def is_applicable(self, token: Token, context: tuple[Token, Token]) -> bool:
+        return (
+            super().is_applicable(token, context)
+            and self.char in token.text
+            and (len(token.text) > 1 or self._suitable_del_ctx(context))
+        )
+
+    @staticmethod
+    def _suitable_del_ctx(context: tuple[Token, Token]) -> bool:
+        return (
+            context[0].is_operator()
+            or context[0].is_punctuation()
+            or context[1].is_operator()
+            or context[1].is_punctuation()
+        )
 
 
 class InsertOperation(CharOperation):
@@ -151,13 +163,9 @@ class ViolationGenerator(ABC):
         non_violated = "".join(
             stream(self.tokens).map(lambda token: token.de_tokenize())
         )
-        violated = self.__generate_violation()
+        violated = self._generate_violation_impl()
 
         return non_violated, violated
-
-    @abstractmethod
-    def _generate_violation_impl(self) -> str:
-        pass
 
     @returns_n_violations(
         n=1,
@@ -166,22 +174,10 @@ class ViolationGenerator(ABC):
         checkstyle_config="checkstyle_config",
     )
     @returns_valid_java
-    def __generate_violation(self) -> str:
-        return self._generate_violation_impl()
-
-
-class RandomGenerator(ViolationGenerator):
-    """
-    Generator for generating violations randomly.
-    """
-
     def _generate_violation_impl(self) -> str:
-        operation = _pick_random_operation().value
-        applicable_tokens = (
-            stream(self.tokens)
-            .filter(lambda token: operation.is_applicable(token))
-            .to_list()
-        )
+        operation = self._pick_operation()
+        print(operation)
+        applicable_tokens = self._get_applicable_tokens(operation)
         if not applicable_tokens:
             raise OperationNonApplicableException(
                 f"{operation} not applicable on token sequence."
@@ -189,6 +185,40 @@ class RandomGenerator(ViolationGenerator):
         random_token = random.choice(applicable_tokens)
         operation(random_token)
         return "".join(stream(self.tokens).map(lambda token: token.de_tokenize()))
+
+    def _get_applicable_tokens(self, operation: Operation) -> list[Token]:
+        padded_tokens: list[Token] = (
+            [Whitespace("", 0, 0)] + self.tokens + [Whitespace("", 0, 0)]
+        )
+        return list(
+            stream(
+                zip(
+                    padded_tokens[1:-1],
+                    zip(padded_tokens[:-2], padded_tokens[2:], strict=True),
+                    strict=True,
+                )
+            )
+            .filter(
+                lambda token_with_ctx: operation.is_applicable(
+                    token_with_ctx[0], token_with_ctx[1]
+                )
+            )
+            .map(lambda token_with_ctx: token_with_ctx[0])
+            .to_list()
+        )
+
+    @abstractmethod
+    def _pick_operation(self) -> Operation:
+        pass
+
+
+class RandomGenerator(ViolationGenerator):
+    """
+    Generator for generating violations randomly.
+    """
+
+    def _pick_operation(self) -> Operation:
+        return _pick_random_operation().value
 
 
 class Protocol(Enum):

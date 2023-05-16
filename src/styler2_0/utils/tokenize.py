@@ -18,6 +18,46 @@ from styler2_0.utils.java import Lexeme, lex_java
 #   type and the second one was simply omitted.
 #######################################################################################
 
+JAVA_OPERATORS = [
+    "=",
+    ">",
+    "<",
+    "!",
+    "~",
+    "?",
+    ":",
+    "==",
+    "<=",
+    ">=",
+    "!=",
+    "&&",
+    "||",
+    "++",
+    "--",
+    "+",
+    "-",
+    "*",
+    "/",
+    "&",
+    "|",
+    "^",
+    "%",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "&=",
+    "|=",
+    "^=",
+    "%=",
+    "<<=",
+    ">>=",
+    ">>>=",
+    "->",
+    "::",
+]
+PUNCTUATION = [".", ",", "(", ")", "[", "]", "{", "}", ";"]
+
 
 class Token:
     """
@@ -38,6 +78,16 @@ class Token:
         :return: Returns none tokenized representation.
         """
         return self.text
+
+    def is_operator(self) -> bool:
+        """
+
+        :return:
+        """
+        return self.text in JAVA_OPERATORS
+
+    def is_punctuation(self) -> bool:
+        return self.text in PUNCTUATION
 
 
 class Identifier(Token):
