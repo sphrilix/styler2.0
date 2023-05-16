@@ -324,7 +324,7 @@ class ProcessedSourceFile:
     def _calc_line_ctx(
         self, ctx_line: int, violation: Violation
     ) -> (int, int, int, int):
-        ctx_begin = len(self.non_ws_tokens)
+        ctx_begin = len(self.non_ws_tokens) - 1  # -1 later added
         ctx_end = 0
         ctx_begin_token_idx = -1
         ctx_end_token_idx = -1
