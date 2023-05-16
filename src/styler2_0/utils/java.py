@@ -91,6 +91,8 @@ def lex_java(code: str) -> list[Lexeme]:
     :param code: The given code snippet.
     :return: Returns the lexemes.
     """
+    if not is_parseable(code):
+        raise NonParseableException()
     input_stream = InputStream(code)
     lexer = JavaLexer(input_stream)
     lexer.removeErrorListeners()
@@ -107,5 +109,6 @@ def lex_java(code: str) -> list[Lexeme]:
                 text=common.text,
             )
         )
+        .filter(lambda token: token.text != "<EOF>")
         .to_list()
     )
