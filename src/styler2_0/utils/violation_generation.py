@@ -1,6 +1,8 @@
 import os
 import random
+import time
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from enum import Enum
 from pathlib import Path
 
@@ -10,10 +12,15 @@ from tqdm import tqdm
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
 from src.styler2_0.utils.tokenize import Token, Whitespace, tokenize_java_code
 from src.styler2_0.utils.utils import (
+    TooManyTriesException,
     get_files_in_dir,
     read_content_of_file,
     retry,
     save_content_to_file,
+)
+from styler2_0.utils.checkstyle import (
+    WrongViolationAmountException,
+    returns_n_violations,
 )
 
 
@@ -127,8 +134,14 @@ class ViolationGenerator(ABC):
         self.checkstyle_config = checkstyle_config
         self.checkstyle_version = checkstyle_version
 
-    @retry(n=10, exceptions=(NonParseableException, OperationNonApplicableException))
-    @returns_valid_java
+    @retry(
+        n=3,
+        exceptions=(
+            NonParseableException,
+            OperationNonApplicableException,
+            WrongViolationAmountException,
+        ),
+    )
     def generate_violation(self) -> (str, str):
         """
         Generate parseable code with exactly one violation in it.
@@ -138,11 +151,23 @@ class ViolationGenerator(ABC):
         non_violated = "".join(
             stream(self.tokens).map(lambda token: token.de_tokenize())
         )
-        return non_violated, self._generate_violation()
+        violated = self.__generate_violation()
+
+        return non_violated, violated
 
     @abstractmethod
-    def _generate_violation(self) -> str:
+    def _generate_violation_impl(self) -> str:
         pass
+
+    @returns_n_violations(
+        n=1,
+        use_instance=True,
+        checkstyle_version="checkstyle_version",
+        checkstyle_config="checkstyle_config",
+    )
+    @returns_valid_java
+    def __generate_violation(self) -> str:
+        return self._generate_violation_impl()
 
 
 class RandomGenerator(ViolationGenerator):
@@ -150,7 +175,7 @@ class RandomGenerator(ViolationGenerator):
     Generator for generating violations randomly.
     """
 
-    def _generate_violation(self) -> str:
+    def _generate_violation_impl(self) -> str:
         operation = _pick_random_operation().value
         applicable_tokens = (
             stream(self.tokens)
@@ -187,22 +212,43 @@ def generate_n_violations(
     checkstyle_config: Path,
     checkstyle_version: str,
     save_path: Path,
+    delta: int = 3 * 60 * 60,  # 3h
 ) -> None:
+    """
+    Create n violation out of non_violated_sources using the provided protocol.
+    :param n: The number of violations.
+    :param protocol: The protocol used to generate.
+    :param non_violated_sources: The sources out of which the violations should be
+                                 generated.
+    :param checkstyle_config: Checkstyle config.
+    :param checkstyle_version: Version of checkstyle.
+    :param save_path: Where to save the violations.
+    :param delta: Max time this generation is allowed to run.
+    :return:
+    """
     os.makedirs(save_path, exist_ok=True)
-    for i in tqdm(range(n)):
-        non_violated_source_files = get_files_in_dir(
-            non_violated_sources, suffix=".java"
-        )
-        current_file = random.choice(non_violated_source_files)
-        content = read_content_of_file(current_file)
-        tokens = tokenize_java_code(content)
-        generator = protocol.get_generator(
-            tokens, checkstyle_config, checkstyle_version
-        )
-        non_violated, violated = generator.generate_violation()
-        current_save_path = save_path / Path(str(i))
-        os.makedirs(current_save_path, exist_ok=True)
-        non_violated_file_name = Path(current_file.name)
-        violated_file_name = Path(f"Violated{current_file.name}")
-        save_content_to_file(current_save_path / non_violated_file_name, non_violated)
-        save_content_to_file(current_save_path / violated_file_name, violated)
+    with tqdm(total=n) as progress_bar:
+        start = time.time()
+        valid_violations = 0
+        while valid_violations < n and time.time() - start < delta:
+            with suppress(TooManyTriesException):
+                non_violated_source_files = get_files_in_dir(
+                    non_violated_sources, suffix=".java"
+                )
+                current_file = random.choice(non_violated_source_files)
+                content = read_content_of_file(current_file)
+                tokens = tokenize_java_code(content)
+                generator = protocol.get_generator(
+                    tokens, checkstyle_config, checkstyle_version
+                )
+                non_violated, violated = generator.generate_violation()
+                current_save_path = save_path / Path(str(valid_violations))
+                os.makedirs(current_save_path, exist_ok=True)
+                non_violated_file_name = Path(current_file.name)
+                violated_file_name = Path(f"Violated{current_file.name}")
+                save_content_to_file(
+                    current_save_path / non_violated_file_name, non_violated
+                )
+                save_content_to_file(current_save_path / violated_file_name, violated)
+                valid_violations += 1
+                progress_bar.update()

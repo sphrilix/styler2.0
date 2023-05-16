@@ -2,11 +2,14 @@ import os.path
 import re
 import subprocess
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
 from streamerate import stream
+
+from styler2_0.utils.utils import save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
@@ -22,6 +25,15 @@ CHECKSTYLE_RUN_CMD = (
 )
 CHECKSTYLE_JAR_NAME = "checkstyle-{}-all.jar"
 CHECKSTYLE_CONF_REG = re.compile(r".*checkstyle.*\.xml")
+CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
+JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
+
+
+class WrongViolationAmountException(Exception):
+    """
+    Exception that is raised whenever a code snippet does not contain the expected
+    number of violations.
+    """
 
 
 class ViolationType(Enum):
@@ -95,15 +107,18 @@ def _find_checkstyle_config(directory: Path) -> Path:
     raise ValueError("Given directory does not contain a checkstyle config!")
 
 
-def run_checkstyle_on_dir(directory: Path, version: str) -> frozenset[CheckstyleReport]:
+def run_checkstyle_on_dir(
+    directory: Path, version: str, config: Path = None
+) -> frozenset[CheckstyleReport]:
     """
     Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
+    :param config: The given config file.
     :param directory: The directory of the Java project.
     :param version: The version of checkstyle to use.
     :return: Returns a set of ChecksStyleFileReport.
     """
     path_to_jar = _build_path_to_checkstyle_jar(version)
-    path_to_checkstyle_config = _find_checkstyle_config(directory)
+    path_to_checkstyle_config = config if config else _find_checkstyle_config(directory)
     checkstyle_cmd = CHECKSTYLE_RUN_CMD.format(
         path_to_jar, path_to_checkstyle_config, directory
     )
@@ -114,6 +129,76 @@ def run_checkstyle_on_dir(directory: Path, version: str) -> frozenset[Checkstyle
         if checkstyle_process.returncode > 0:
             output = b"".join(output.split(b"</checkstyle>")[0:-1]) + b"</checkstyle>"
         return _parse_checkstyle_xml_report(output)
+
+
+def run_checkstyle_on_str(code: str, version: str, config: Path) -> CheckstyleReport:
+    """
+    Runs checkstyle on the given code snippet.
+    :param code: The given snippet.
+    :param version: The checkstyle version.
+    :param config: The checkstyle config.
+    :return: Returns the CheckstyleReport of the snippet.
+    """
+    os.makedirs(CHECKSTYLE_TEMP_PATH, exist_ok=True)
+    save_content_to_file(JAVA_TEMP_FILE, code)
+    return list(run_checkstyle_on_dir(CHECKSTYLE_TEMP_PATH, version, config))[0]
+
+
+def n_violations_in_code(n: int, code: str, version: str, config: Path) -> None:
+    """
+    Ensures that the given code snippet contains exactly n violations.
+    :param n: The given n.
+    :param code: The given snippet.
+    :param version: Version of checkstyle.
+    :param config: Checkstyle config.
+    :return:
+    """
+    report = run_checkstyle_on_str(code, version, config)
+    if len(report.violations) != n:
+        raise WrongViolationAmountException(
+            f"Expected {n} violations got {len(report.violations)}."
+        )
+
+
+def returns_n_violations(
+    n: int,
+    checkstyle_version: str,
+    checkstyle_config: Path | str,
+    use_instance: bool = False,
+) -> Callable[[Callable[..., str]], Callable[..., str]]:
+    """
+    Decorator ensuring a function decorated with this is returning a string that
+    contains exactly the expected amount of violations.
+
+    One can either supply the path to the checkstyle config and the version
+    immediately or tell the program to use an instance which holds the values.
+    If so the name of the instance variables must be supplied in order to get the
+    values.
+
+    :param n: The expected amount of violations.
+    :param checkstyle_version: Checkstyle version or variable name of the version.
+    :param checkstyle_config: Path to checkstyle config or variable name of the config
+                              path.
+    :param use_instance: Bool flag to tell the decorator use instance or not.
+    :return: Returns the decorated function.
+    """
+
+    def _n_violations_decorator(func: Callable[..., str]) -> Callable[..., str]:
+        def _returns_n_violations(*args: ..., **kwargs: ...) -> str:
+            return_value = func(*args, **kwargs)
+            if use_instance:
+                self = args[0]
+                checkstyle_v = getattr(self, checkstyle_version)
+                checkstyle_c = getattr(self, checkstyle_config)
+            else:
+                checkstyle_v = checkstyle_version
+                checkstyle_c = checkstyle_config
+            n_violations_in_code(n, return_value, checkstyle_v, checkstyle_c)
+            return return_value
+
+        return _returns_n_violations
+
+    return _n_violations_decorator
 
 
 def _build_path_to_checkstyle_jar(version: str) -> Path:

@@ -284,3 +284,6 @@ poetry.toml
 
 # Ignore .DS_Store files from git repository
 .DS_Store
+
+# Ignore tmp checkstyle files
+/checkstyle-tmp

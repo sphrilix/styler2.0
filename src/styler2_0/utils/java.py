@@ -47,7 +47,7 @@ class SyntaxErrorListener(ErrorListener):
         raise NonParseableException()
 
 
-def returns_valid_java(func: Callable[..., ...]) -> Callable[..., ...]:
+def returns_valid_java(func: Callable[..., str]) -> Callable[..., str]:
     """
     Decorator ensuring a decorated  function returns strings those strings are
     actually parseable.
@@ -55,12 +55,11 @@ def returns_valid_java(func: Callable[..., ...]) -> Callable[..., ...]:
     :return: Returns the decorated function.
     """
 
-    def _returns_valid_java_decorator(*args: ..., **kwargs: ...) -> ...:
-        return_values = func(*args, **kwargs)
-        for return_value in return_values:
-            if type(return_value) == str and not is_parseable(return_value):
-                raise NonParseableException(f"Not valid java code: {return_value}")
-        return return_values
+    def _returns_valid_java_decorator(*args: ..., **kwargs: ...) -> str:
+        return_value = func(*args, **kwargs)
+        if not is_parseable(return_value):
+            raise NonParseableException(f"Not valid java code: {return_value}")
+        return return_value
 
     return _returns_valid_java_decorator
 
