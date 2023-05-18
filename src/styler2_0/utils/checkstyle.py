@@ -9,7 +9,7 @@ from pathlib import Path
 
 from streamerate import stream
 
-from styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.utils import save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
