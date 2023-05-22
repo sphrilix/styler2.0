@@ -240,7 +240,6 @@ class ProcessedSourceFile:
         assert report.path == self.file_name, "Report and source file path must match."
 
         for violation in report.violations:
-            print(violation)
             if violation.column is None:
                 start, end = self._get_line_violation_ctx(violation)
             else:
@@ -259,7 +258,7 @@ class ProcessedSourceFile:
 
     def _get_line_violation_ctx(self, violation: Violation) -> (Token, Token):
         assert violation.column is None
-        if violation.line == 0:
+        if violation.line == 1:
             start = self.tokens[0]
         else:
             start = self._get_last_non_ws_token_of_line(violation.line - 1)
@@ -300,7 +299,7 @@ class ProcessedSourceFile:
                     and non_ws_token.column < token.column
                     or non_ws_token.line < token.line
                 ),
-                self.tokens[-1],
+                self.tokens[0],
             )
         return next(
             (
@@ -310,7 +309,7 @@ class ProcessedSourceFile:
                 and token.column < non_ws_token.column
                 or token.line < non_ws_token.line
             ),
-            self.tokens[0],
+            self.tokens[-1],
         )
 
     def _insert_deltas_on_linebreaks(self) -> None:
