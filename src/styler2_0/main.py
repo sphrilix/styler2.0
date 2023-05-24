@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir
 from src.styler2_0.utils.tokenize import tokenize_dir, tokenize_with_reports
+from src.styler2_0.utils.utils import enum_action
 from src.styler2_0.utils.violation_generation import Protocol, generate_n_violations
 
 
@@ -65,10 +66,8 @@ def _set_up_arg_parser() -> ArgumentParser:
     # Set up arguments for generating violations
     arg_parser.add_argument(
         "--protocol",
-        type=Protocol,
-        choices=list(Protocol),
+        action=enum_action(Protocol),
         required=False,
-        default=argparse.SUPPRESS,
     )
     arg_parser.add_argument("--n", type=int, required=False, default=argparse.SUPPRESS)
     arg_parser.add_argument("--save", required=False, default=argparse.SUPPRESS)
@@ -89,5 +88,5 @@ if __name__ == "__main__":
         Path("/Users/maxij/PycharmProjects/styler2.0/data"), "8.0"
     )
     print(sys.argv)
-    # main(sys.argv[1:])
+    main(sys.argv[1:])
     print(tokenize_with_reports(reports))

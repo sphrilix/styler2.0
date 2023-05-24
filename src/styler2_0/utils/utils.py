@@ -1,9 +1,72 @@
+import argparse
 import os
-from collections.abc import Callable
+from argparse import Action
+from collections.abc import Callable, Sequence
+from enum import Enum
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
+E = TypeVar("E", bound=Enum)
+
+
+def enum_action(enum_cls: type[E]) -> type[Action]:
+    """
+    Casting enums in ArgParser based on their name.
+    :param enum_cls: The type of the enum.
+    :return: Returns the Action to perform casting.
+    """
+
+    class EnumAction(Action):
+        """
+        Action to parse enums based on their name.
+        """
+
+        def __init__(
+            self,
+            option_strings: Sequence[str],
+            dest: str,
+            nargs: str | int | None = None,
+            const: E | None = None,
+            default: E | str | None = None,
+            type: Callable[[str], E] | argparse.FileType | None = None,
+            required: bool = False,
+            help_str: str | None = None,
+            metavar: str | tuple[str, ...] | None = None,
+        ) -> None:
+            if isinstance(default, str):
+                default = enum_cls[default.upper()]
+            if default is not None:
+                if help_str is None:
+                    help_str = f"(default: {default.name.lower()})"
+                else:
+                    help_str = f"{help_str} (default: {default.name.lower()})"
+            self.cls = enum_cls
+            super().__init__(
+                option_strings,
+                dest,
+                nargs=nargs,
+                const=const,
+                default=default,
+                type=type,
+                choices=[variant.name for variant in enum_cls],  # type: ignore
+                required=required,
+                help=help_str,
+                metavar=metavar,
+            )
+
+        def __call__(
+            self,
+            parser: argparse.ArgumentParser,
+            namespace: argparse.Namespace,
+            values: str | Sequence[Any] | None = None,
+            option_str: None | str = None,
+        ) -> None:
+            if not isinstance(values, str):
+                raise TypeError
+            setattr(namespace, self.dest, getattr(self.cls, values.upper()))
+
+    return EnumAction
 
 
 class TooManyTriesException(Exception):
