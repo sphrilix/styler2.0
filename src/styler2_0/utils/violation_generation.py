@@ -2,9 +2,12 @@ import os
 import random
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from contextlib import suppress
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from streamerate import stream
 from tqdm import tqdm
@@ -281,8 +284,97 @@ class RandomGenerator(ViolationGenerator):
         )
 
 
+@dataclass(frozen=True)
+class ThreeGram:
+    token_before: Token | None
+    whitespace: Whitespace
+    token_after: Token | None
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ThreeGram):
+            return False
+        return (
+            str(self.token_before) == str(other.token_before)
+            and str(self.whitespace) == str(other.whitespace)
+            and str(self.token_after) == str(other.token_after)
+        )
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
+
+    def __repr__(self) -> str:
+        return (
+            f"[{str(self.token_before)}, "
+            f"{str(self.whitespace)}, "
+            f"{str(self.token_after)}]"
+        )
+
+
+class ThreeGramGenerator(ViolationGenerator):
+    """
+    3-gram violation generator.
+    """
+
+    def _preprocessing_steps(self) -> None:
+        self.__collect_3_grams()
+
+    def _postprocessing_steps(self) -> None:
+        pass
+
+    def _generate_violation(self, tokens: list[Token]) -> str:
+        three_gram = next(self.__build_3_grams(tokens))
+        self.__get_alternatives_with_prob(three_gram)
+        return ""
+
+    def __collect_3_grams(self) -> None:
+        self.three_grams = {}
+        for source in self.non_violated_sources:
+            tokens = tokenize_java_code(read_content_of_file(source))
+            three_grams = self.__build_3_grams(tokens)
+            for three_gram in three_grams:
+                self.three_grams.setdefault(three_gram, 0)
+                self.three_grams[three_gram] += 1
+
+    @staticmethod
+    def __build_3_grams(tokens: list[Token]) -> Generator[ThreeGram, Any, None]:
+        whitespaces = (
+            stream(tokens).filter(lambda token: isinstance(token, Whitespace)).to_list()
+        )
+        for whitespace in whitespaces:
+            idx = tokens.index(whitespace)
+            token_before = None if idx == 0 else tokens[idx - 1]
+            token_after = None if idx == len(tokens) - 1 else tokens[idx + 1]
+            yield ThreeGram(token_before, whitespace, token_after)
+
+    def __get_alternatives_with_prob(
+        self, three_gram: ThreeGram
+    ) -> dict[ThreeGram, float]:
+        alternatives = (
+            stream(list(self.three_grams.items()))
+            .filter(
+                lambda entry: str(entry[0].token_before) == str(three_gram.token_before)
+                and str(entry[0].token_after) == str(three_gram.token_after)
+            )
+            .to_dict()
+        )
+        total = (
+            alternatives.items()
+            .map(lambda entry: entry[1])
+            .reduce(lambda entry1, entry2: entry1 + entry2, 0)
+        )
+        return dict(
+            alternatives.items()
+            .map(lambda entry: (entry[0], entry[1] / total))
+            .to_dict()
+        )
+
+
 class Protocol(Enum):
     RANDOM = RandomGenerator
+    THREE_GRAM = ThreeGramGenerator
 
     def __call__(self, *args, **kwargs) -> ViolationGenerator:
         return self.value(*args, **kwargs)
@@ -310,5 +402,8 @@ def generate_n_violations(
     :return:
     """
     protocol(
+        n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
+    ).generate_violations()
+    ThreeGramGenerator(
         n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
     ).generate_violations()
