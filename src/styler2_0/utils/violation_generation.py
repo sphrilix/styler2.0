@@ -325,9 +325,19 @@ class ThreeGramGenerator(ViolationGenerator):
         pass
 
     def _generate_violation(self, tokens: list[Token]) -> str:
-        three_gram = next(self.__build_3_grams(tokens))
-        self.__get_alternatives_with_prob(three_gram)
-        return ""
+        three_gram = random.choice(list(self.__build_3_grams(tokens)))
+        alternatives_with_prob = self.__get_alternatives_with_prob(three_gram)
+        if not alternatives_with_prob:
+            raise OperationNonApplicableException
+        weights = list(alternatives_with_prob.values())
+        choices = list(
+            stream(list(alternatives_with_prob.keys())).map(
+                lambda t_gram: t_gram.whitespace
+            )
+        )
+        new_ws = random.choices(choices, weights)
+        three_gram.whitespace.text = new_ws[0].text
+        return "".join(stream(tokens).map(lambda token: token.de_tokenize()))
 
     def __collect_3_grams(self) -> None:
         self.three_grams = {}
@@ -357,6 +367,7 @@ class ThreeGramGenerator(ViolationGenerator):
             .filter(
                 lambda entry: str(entry[0].token_before) == str(three_gram.token_before)
                 and str(entry[0].token_after) == str(three_gram.token_after)
+                and str(entry[0].whitespace) != str(three_gram.whitespace)
             )
             .to_dict()
         )
@@ -402,8 +413,5 @@ def generate_n_violations(
     :return:
     """
     protocol(
-        n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
-    ).generate_violations()
-    ThreeGramGenerator(
         n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
     ).generate_violations()
