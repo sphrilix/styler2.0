@@ -1,7 +1,7 @@
 import os.path
 import re
 import subprocess
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as Xml
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -206,7 +206,7 @@ def _build_path_to_checkstyle_jar(version: str) -> Path:
 
 
 def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleReport]:
-    root = ET.fromstring(report)
+    root = Xml.fromstring(report)
     return frozenset(
         stream(list(root))
         .map(
@@ -218,7 +218,7 @@ def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleReport]:
     )
 
 
-def _parse_violations(raw_violations: list[ET.Element]) -> frozenset[Violation]:
+def _parse_violations(raw_violations: list[Xml.Element]) -> frozenset[Violation]:
     return frozenset(
         stream(raw_violations)
         .filter(lambda raw_violation: raw_violation.tag == "error")
@@ -236,5 +236,5 @@ def _parse_violations(raw_violations: list[ET.Element]) -> frozenset[Violation]:
     )
 
 
-def _get_violation_name(raw_violation: ET.Element) -> str:
+def _get_violation_name(raw_violation: Xml.Element) -> str:
     return raw_violation.attrib.get("source").split(".")[-1].replace("Check", "")

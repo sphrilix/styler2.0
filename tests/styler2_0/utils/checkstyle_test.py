@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from styler2_0.utils.checkstyle import (
+from src.styler2_0.utils.checkstyle import (
     WrongViolationAmountException,
     returns_n_violations,
     run_checkstyle_on_dir,
