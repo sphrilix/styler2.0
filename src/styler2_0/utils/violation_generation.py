@@ -412,6 +412,7 @@ def generate_n_violations(
     :param delta: Max time this generation is allowed to run.
     :return:
     """
+    save_path = save_path / Path(protocol.name.lower())
     protocol(
         n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
     ).generate_violations()
