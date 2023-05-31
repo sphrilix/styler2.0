@@ -123,6 +123,15 @@ class Token:
         return False
 
 
+class LiteralToken(Token):
+    def __init__(self, text: str, line: int, column: int, literal_type: str) -> None:
+        super().__init__(text, line, column)
+        self.literal_type = literal_type
+
+    def __str__(self) -> str:
+        return self.literal_type
+
+
 class Identifier(Token):
     """
     Class which represents Identifier/Literals
@@ -365,12 +374,19 @@ def _process_raw_token(raw_token: Lexeme) -> Token:
     :return: Returns the "processed" RawToken.
     """
     match ContainsStr(raw_token.symbolic_name):
-        case "IDENTIFIER" | "LITERAL":
+        case "IDENTIFIER":
             return Identifier(raw_token.text, raw_token.line, raw_token.column)
         case "WS":
             return Whitespace(raw_token.text, raw_token.line, raw_token.column)
         case "COMMENT":
             return Comment(raw_token.text, raw_token.line, raw_token.column)
+        case "LITERAL":
+            return LiteralToken(
+                raw_token.text,
+                raw_token.line,
+                raw_token.column,
+                raw_token.symbolic_name,
+            )
         case _:
             return Token(raw_token.text, raw_token.line, raw_token.column)
 

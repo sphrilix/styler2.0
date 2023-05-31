@@ -1,7 +1,7 @@
 import pytest
 from streamerate import stream
 
-from styler2_0.utils.java import NonParseableException, lex_java, returns_valid_java
+from src.styler2_0.utils.java import NonParseableException, lex_java, returns_valid_java
 
 
 def test_returns_in_fact_valid_java() -> None:

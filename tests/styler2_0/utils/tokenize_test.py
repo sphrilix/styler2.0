@@ -80,3 +80,40 @@ def test_tokenizing_with_line_violation_in_between() -> None:
     source = ProcessedSourceFile(Path("."), tokens, report)
     assert source.tokens[4].text == ViolationType.REGEXP_SINGLE_LINE.value
     assert source.tokens[-2].text == ViolationType.REGEXP_SINGLE_LINE.value
+
+
+def test_tokenizing_do_while_with_break() -> None:
+    tokens = tokenize_java_code(
+        "interface IntUtils {\n"
+        "  @NotNull"
+        "  default int foo(int param) {\n"
+        "    do {\n"
+        "      param = param - 42;\n"
+        "      if (param < 0)\n"
+        "        break;\n"
+        "    } while(param > 1);\n"
+        "  }\n"
+        "}\n"
+    )
+    assert len(tokens) == 78
+    assert len([t for t in tokens if str(t) == "int"]) == 2
+    assert len([t for t in tokens if str(t) == "DECIMAL_LITERAL"]) == 3
+    assert len([t for t in tokens if str(t) == "default"]) == 1
+    assert len([t for t in tokens if str(t) == "while"]) == 1
+    assert len([t for t in tokens if str(t) == "do"]) == 1
+    assert len([t for t in tokens if str(t) == "interface"]) == 1
+
+
+def test_literal_parsing() -> None:
+    string = tokenize_java_code('"Hello"')
+    assert str(string[0]) == "STRING_LITERAL"
+    null = tokenize_java_code("null")
+    assert str(null[0]) == "NULL_LITERAL"
+    integer = tokenize_java_code("42")
+    assert str(integer[0]) == "DECIMAL_LITERAL"
+    hexa = tokenize_java_code("0x42")
+    assert str(hexa[0]) == "HEX_LITERAL"
+    hexa_fp = tokenize_java_code("0x1p3")
+    assert str(hexa_fp[0]) == "HEX_FLOAT_LITERAL"
+    boolean = tokenize_java_code("true")
+    assert str(boolean[0]) == "BOOL_LITERAL"
