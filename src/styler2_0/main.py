@@ -1,24 +1,26 @@
-import argparse
 import sys
 from argparse import ArgumentParser, Namespace
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
-from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir
-from src.styler2_0.utils.tokenize import tokenize_dir, tokenize_with_reports
 from src.styler2_0.utils.utils import enum_action
 from src.styler2_0.utils.violation_generation import Protocol, generate_n_violations
 
 
-class ArgumentMissingException(Exception):
+class TaskNotSupportedException(Exception):
     """
-    Exception thrown if a required argument is missing.
+    Exception is thrown whenever a task is not supported.
     """
 
 
 class Tasks(Enum):
     RUN_CHECKSTYLE = "RUN_CHECKSTYLE"
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
+
+    @classmethod
+    def _missing_(cls, value: object) -> Any:
+        raise TaskNotSupportedException(f"{value} is a not supported Task!")
 
     def __str__(self) -> str:
         return self.value
@@ -27,7 +29,8 @@ class Tasks(Enum):
 def main(args: list[str]) -> int:
     arg_parser = _set_up_arg_parser()
     parsed_args = arg_parser.parse_args(args)
-    match parsed_args.task:
+    task = Tasks(parsed_args.command)
+    match task:
         case Tasks.GENERATE_VIOLATIONS:
             _run_violation_generation(parsed_args)
         case _:
@@ -36,9 +39,6 @@ def main(args: list[str]) -> int:
 
 
 def _run_violation_generation(parsed_args: Namespace) -> None:
-    _check_presence_of_needed_args(
-        parsed_args, ("protocol", "save", "source", "config", "version", "n")
-    )
     protocol = parsed_args.protocol
     n = parsed_args.n
     save = Path(parsed_args.save)
@@ -49,44 +49,26 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     generate_n_violations(n, protocol, source, config, version, save)
 
 
-def _check_presence_of_needed_args(
-    parsed_args: Namespace, args: tuple[str, ...]
-) -> None:
-    for arg in args:
-        if arg not in parsed_args:
-            raise ArgumentMissingException(
-                f"When running task: {parsed_args.task} --{arg} must be specified."
-            )
-
-
 def _set_up_arg_parser() -> ArgumentParser:
     arg_parser = ArgumentParser()
-    arg_parser.add_argument("--task", type=Tasks, choices=list(Tasks))
+    sub_parser = arg_parser.add_subparsers(dest="command", required=True)
+    generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
 
     # Set up arguments for generating violations
-    arg_parser.add_argument(
+    generation.add_argument(
         "--protocol",
         action=enum_action(Protocol),
         required=False,
     )
-    arg_parser.add_argument("--n", type=int, required=False, default=argparse.SUPPRESS)
-    arg_parser.add_argument("--save", required=False, default=argparse.SUPPRESS)
-    arg_parser.add_argument("--source", required=False, default=argparse.SUPPRESS)
-    arg_parser.add_argument("--config", required=False, default=argparse.SUPPRESS)
-    arg_parser.add_argument("--version", required=False, default=argparse.SUPPRESS)
+    generation.add_argument("--n", type=int, required=True)
+    generation.add_argument("--save", required=True)
+    generation.add_argument("--source", required=True)
+    generation.add_argument("--config", required=True)
+    generation.add_argument("--version", required=True)
+    generation.add_argument("--delta", required=False, type=int, default=10800)
+
     return arg_parser
 
 
 if __name__ == "__main__":
-    print(tokenize_dir(Path("/Users/maxij/PycharmProjects/styler2.0/data")))
-    # print(
-    #     run_checkstyle_on_dir(
-    #         Path("/Users/maxij/PycharmProjects/styler2.0/data"), "8.0"
-    #     )
-    # )
-    reports = run_checkstyle_on_dir(
-        Path("/Users/maxij/PycharmProjects/styler2.0/data"), "8.0"
-    )
-    print(sys.argv)
     main(sys.argv[1:])
-    print(tokenize_with_reports(reports))
