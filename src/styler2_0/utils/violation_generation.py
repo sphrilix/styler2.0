@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import time
@@ -7,7 +8,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from streamerate import stream
 from tqdm import tqdm
@@ -15,9 +16,16 @@ from tqdm import tqdm
 from src.styler2_0.utils.checkstyle import (
     WrongViolationAmountException,
     returns_n_violations,
+    run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
-from src.styler2_0.utils.tokenize import Token, Whitespace, tokenize_java_code
+from src.styler2_0.utils.tokenize import (
+    CheckstyleToken,
+    ProcessedSourceFile,
+    Token,
+    Whitespace,
+    tokenize_java_code,
+)
 from src.styler2_0.utils.utils import (
     TooManyTriesException,
     get_files_in_dir,
@@ -118,12 +126,12 @@ class Operations(Enum):
     Enum of operations that can be performed.
     """
 
-    INSERT_SPACE = InsertOperation(" ")
+    # INSERT_SPACE = InsertOperation(" ")
     INSERT_TAB = InsertOperation("\t")
-    INSERT_NL = InsertOperation("\n")
-    DELETE_TAB = DeleteOperation("\t")
-    DELETE_SPACE = DeleteOperation(" ")
-    DELETE_NL = DeleteOperation("\n")
+    # INSERT_NL = InsertOperation("\n")
+    # DELETE_TAB = DeleteOperation("\t")
+    # DELETE_SPACE = DeleteOperation(" ")
+    # DELETE_NL = DeleteOperation("\n")
 
     def __call__(self, code: str) -> str:
         return self.value(code)
@@ -234,6 +242,27 @@ class ViolationGenerator(ABC):
                     valid_violations += 1
                     progress_bar.update()
         self._postprocessing_steps()
+        self._generate_metadata()
+
+    def _generate_metadata(self) -> None:
+        for sample_dir in os.listdir(self.save_path):
+            curr_dir = self.save_path / Path(sample_dir)
+            for _, _, files in os.walk(curr_dir):
+                violated, non_violated = None, None
+                for file in files:
+                    if file.startswith("VIOLATED"):
+                        violated = curr_dir / Path(file)
+                    elif file.endswith(".java"):
+                        non_violated = curr_dir / Path(file)
+                if not non_violated or not violated:
+                    continue
+                metadata = Metadata(
+                    non_violated,
+                    violated,
+                    self.checkstyle_config,
+                    self.checkstyle_version,
+                )
+                metadata.save_to_directory(curr_dir)
 
 
 class RandomGenerator(ViolationGenerator):
@@ -389,6 +418,107 @@ class Protocol(Enum):
 
     def __call__(self, *args, **kwargs) -> ViolationGenerator:
         return self.value(*args, **kwargs)
+
+
+class Metadata:
+    def __init__(
+        self,
+        non_violated_source: Path,
+        violated_source: Path,
+        config: Path,
+        version: str,
+        non_violated_str: str | None = None,
+        violated_str: str | None = None,
+    ) -> None:
+        self.non_violated_source = non_violated_source
+        self.violated_source = violated_source
+        self.config = config
+        self.version = version
+        if not non_violated_str or not violated_str:
+            self.__set_up_metadata()
+        else:
+            self.violated_str = violated_str
+            self.non_violated_str = non_violated_str
+
+    def to_json(self) -> str:
+        json_dict = {
+            "non_violated_source": str(self.non_violated_source),
+            "violated_source": str(self.violated_source),
+            "config": str(self.config),
+            "version": self.version,
+            "non_violated_str": self.non_violated_str,
+            "violated_Str": self.violated_str,
+        }
+        return json.dumps(json_dict)
+
+    @classmethod
+    def from_json(cls, json_data: str) -> Self:
+        data = json.loads(json_data)
+        return cls(
+            Path(data["non_violated_source"]),
+            Path(data["violated_source"]),
+            Path(data["config"]),
+            data["version"],
+            data["non_violated_str"],
+            data["violated_str"],
+        )
+
+    def save_to_directory(self, directory: Path) -> None:
+        filepath = directory / Path("data.json")
+        save_content_to_file(filepath, self.to_json())
+
+    def __set_up_metadata(self) -> None:
+        reports = run_checkstyle_on_dir(
+            self.non_violated_source.parents[0], self.version, self.config
+        )
+        processed_files = [
+            ProcessedSourceFile(
+                report.path,
+                tokenize_java_code(read_content_of_file(report.path)),
+                report,
+            )
+            for report in reports
+            if str(report.path).endswith(".java")
+        ]
+        non_violated = (
+            stream(processed_files)
+            .filter(lambda file: len(file.report.violations) == 0)
+            .next()
+        )
+        violated = (
+            stream(processed_files)
+            .filter(lambda file: len(file.report.violations) > 0)
+            .next()
+        )
+        self.non_violated_str, self.violated_str = self.__filter_relevant_tokens(
+            non_violated, violated
+        )
+
+    @staticmethod
+    def __filter_relevant_tokens(
+        non_violated: ProcessedSourceFile, violated: ProcessedSourceFile
+    ) -> (str, str):
+        assert len(violated.checkstyle_tokens) == 2
+        start_check, end_check = violated.checkstyle_tokens
+        violated_tokens = violated.tokens[
+            violated.tokens.index(start_check) : violated.tokens.index(end_check) + 1
+        ]
+        violated_tokens_wo_checkstyle = (
+            stream(violated.tokens)
+            .filter(lambda token: not isinstance(token, CheckstyleToken))
+            .to_list()
+        )
+        start_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[1])
+        end_idx_non_violated = (
+            violated_tokens_wo_checkstyle.index(violated_tokens[-2]) + 1
+        )
+        non_violated_tokens = non_violated.tokens[
+            start_idx_non_violated:end_idx_non_violated
+        ]
+        return (
+            " ".join(stream(non_violated_tokens).map(str)),
+            " ".join(stream(violated_tokens).map(str)),
+        )
 
 
 def generate_n_violations(

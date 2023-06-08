@@ -102,7 +102,7 @@ class CheckstyleReport:
     violations: frozenset[Violation]
 
 
-def _find_checkstyle_config(directory: Path) -> Path:
+def find_checkstyle_config(directory: Path) -> Path:
     for subdir, _, files in os.walk(directory):
         for file in files:
             if CHECKSTYLE_CONF_REG.match(file):
@@ -121,7 +121,7 @@ def run_checkstyle_on_dir(
     :return: Returns a set of ChecksStyleFileReport.
     """
     path_to_jar = _build_path_to_checkstyle_jar(version)
-    path_to_checkstyle_config = config if config else _find_checkstyle_config(directory)
+    path_to_checkstyle_config = config if config else find_checkstyle_config(directory)
     checkstyle_cmd = CHECKSTYLE_RUN_CMD.format(
         path_to_jar, path_to_checkstyle_config, directory
     )

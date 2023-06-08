@@ -221,6 +221,9 @@ class ProcessedSourceFile:
             .to_list()
         )
 
+        self.report = report
+        self.checkstyle_tokens = []
+
         # insert deltas of indentation after linebreak
         self._insert_deltas_on_linebreaks()
 
@@ -260,6 +263,10 @@ class ProcessedSourceFile:
             end_style_token = CheckstyleToken(
                 violation.type.value, end.line, end.column, False
             )
+
+            self.checkstyle_tokens.append(start_style_token)
+            self.checkstyle_tokens.append(end_style_token)
+
             start_idx = max(0, self.tokens.index(start))
             end_idx = min(len(self.tokens), self.tokens.index(end) + 1)
             self.tokens.insert(end_idx, end_style_token)

@@ -9,7 +9,7 @@ from typing import Any
 
 from streamerate import stream
 
-from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir
+from src.styler2_0.utils.checkstyle import find_checkstyle_config, run_checkstyle_on_dir
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.utils import enum_action
 from src.styler2_0.utils.violation_generation import Protocol, generate_n_violations
@@ -51,6 +51,15 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     save = parsed_args.save
     source = parsed_args.source
     config = parsed_args.config
+
+    os.makedirs(save, exist_ok=True)
+
+    if not config:
+        config = find_checkstyle_config(source)
+
+    copyfile(config, save / Path("checkstyle.xml"))
+
+    config = save / Path("checkstyle.xml")
 
     version = parsed_args.version
     if not version:
