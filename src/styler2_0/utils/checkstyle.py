@@ -25,7 +25,7 @@ CHECKSTYLE_RUN_CMD = (
 )
 CHECKSTYLE_JAR_NAME = "checkstyle-{}-all.jar"
 CHECKSTYLE_CONF_REG = re.compile(
-    r".?((checkstyle)|(check-style)|(sun)|(google))[-_]]?"
+    r".?((checkstyle)|(check-style)|(sun)|(google))[-_]?"
     r"((config)|(configuration)|(checks)|(checker)|(rules))?.xml"
 )
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
@@ -229,7 +229,7 @@ def _parse_violations(raw_violations: list[Xml.Element]) -> frozenset[Violation]
             lambda raw_violation: Violation(
                 ViolationType(_get_violation_name(raw_violation)),
                 int(raw_violation.attrib["line"]),
-                int(raw_violation.attrib["line"])
+                int(raw_violation.attrib["column"])
                 if "column" in raw_violation.attrib
                 else None,
             )

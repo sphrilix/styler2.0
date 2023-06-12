@@ -1,12 +1,22 @@
+import os
 from pathlib import Path
 
-from src.styler2_0.utils.checkstyle import CheckstyleReport, Violation, ViolationType
+from src.styler2_0.utils.checkstyle import (
+    CheckstyleReport,
+    Violation,
+    ViolationType,
+    run_checkstyle_on_str,
+)
 from src.styler2_0.utils.tokenize import (
     Comment,
     ProcessedSourceFile,
     Whitespace,
     tokenize_java_code,
 )
+
+CURR_DIR = os.path.dirname(os.path.relpath(__file__))
+SAMPLE_PROJECT = os.path.join(CURR_DIR, "../../res/sample_project")
+CHECKSTYLE_CONFIG = Path(os.path.join(SAMPLE_PROJECT, "checkstyle.xml"))
 
 
 def test_pad_source_file() -> None:
@@ -117,3 +127,38 @@ def test_literal_parsing() -> None:
     assert str(hexa_fp[0]) == "HEX_FLOAT_LITERAL"
     boolean = tokenize_java_code("true")
     assert str(boolean[0]) == "BOOL_LITERAL"
+
+
+def test_tokenizing_with_checkstyle_violation() -> None:
+    violated_snippet = "public\tclass Violated{}"
+    report = run_checkstyle_on_str(violated_snippet, "8.0", CHECKSTYLE_CONFIG)
+    tokens = tokenize_java_code(violated_snippet)
+    processed_source = ProcessedSourceFile(None, tokens, report)
+    assert processed_source.tokens[0].text == "FileTabCharacter"
+    assert processed_source.tokens[4].text == "FileTabCharacter"
+
+
+def test_tokenizing_with_checkstyle_violation_nl() -> None:
+    violated_snippet = (
+        "public class Violated {\n        public\tvoid main(String[] args) {} }"
+    )
+    report = run_checkstyle_on_str(violated_snippet, "8.0", CHECKSTYLE_CONFIG)
+    tokens = tokenize_java_code(violated_snippet)
+    processed_source = ProcessedSourceFile(None, tokens, report)
+    assert processed_source.tokens[8].text == "FileTabCharacter"
+    assert processed_source.tokens[12].text == "FileTabCharacter"
+
+
+def test_tokenize_with_line_violations() -> None:
+    violated_snippet = (
+        "public class Violated {\n"
+        "    public void main(String[] args) {\n"
+        "        new RuntimeException().printStackTrace();\n"
+        "    }\n"
+        "}"
+    )
+    report = run_checkstyle_on_str(violated_snippet, "8.0", CHECKSTYLE_CONFIG)
+    tokens = tokenize_java_code(violated_snippet)
+    processed_source = ProcessedSourceFile(None, tokens, report)
+    assert processed_source.tokens[26].text == "RegexpSinglelineJava"
+    assert processed_source.tokens[48].text == "RegexpSinglelineJava"

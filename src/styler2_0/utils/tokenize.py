@@ -119,7 +119,7 @@ class Token:
         if violation.line == self.line:
             return self.column <= violation.column
         if violation.line == end_line:
-            return end_col <= violation.column
+            return violation.column <= end_col
         return False
 
 
@@ -208,7 +208,7 @@ class ProcessedSourceFile:
 
     def __init__(
         self,
-        file_name: Path,
+        file_name: Path | None,
         tokens: list[Token],
         report: CheckstyleReport = None,
     ) -> None:
@@ -249,7 +249,9 @@ class ProcessedSourceFile:
         return self.tokenized_str()
 
     def _insert_checkstyle_report(self, report: CheckstyleReport) -> None:
-        assert report.path == self.file_name, "Report and source file path must match."
+        assert (
+            report.path == self.file_name or self.file_name is None
+        ), "Report and source file path must match."
 
         for violation in report.violations:
             if violation.column is None:
