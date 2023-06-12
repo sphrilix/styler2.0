@@ -127,6 +127,8 @@ def test_literal_parsing() -> None:
     assert str(hexa_fp[0]) == "HEX_FLOAT_LITERAL"
     boolean = tokenize_java_code("true")
     assert str(boolean[0]) == "BOOL_LITERAL"
+    double = tokenize_java_code("42.0")
+    assert str(double[0]) == "FLOAT_LITERAL"
 
 
 def test_tokenizing_with_checkstyle_violation() -> None:

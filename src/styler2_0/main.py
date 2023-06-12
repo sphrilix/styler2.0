@@ -9,10 +9,14 @@ from typing import Any
 
 from streamerate import stream
 
+from src.styler2_0.preprocessing.violation_generation import (
+    Protocol,
+    generate_n_violations,
+)
 from src.styler2_0.utils.checkstyle import find_checkstyle_config, run_checkstyle_on_dir
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
+from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
-from src.styler2_0.utils.violation_generation import Protocol, generate_n_violations
 
 
 class TaskNotSupportedException(Exception):
@@ -24,6 +28,7 @@ class TaskNotSupportedException(Exception):
 class Tasks(Enum):
     RUN_CHECKSTYLE = "RUN_CHECKSTYLE"
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
+    ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -40,6 +45,8 @@ def main(args: list[str]) -> int:
     match task:
         case Tasks.GENERATE_VIOLATIONS:
             _run_violation_generation(parsed_args)
+        case Tasks.ADAPT_THREE_GRAMS:
+            adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case _:
             return 1
     return 0
@@ -93,6 +100,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     arg_parser = ArgumentParser()
     sub_parser = arg_parser.add_subparsers(dest="command", required=True)
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
+    adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -106,6 +114,10 @@ def _set_up_arg_parser() -> ArgumentParser:
     generation.add_argument("--config", required=False, type=Path, default=None)
     generation.add_argument("--version", required=False)
     generation.add_argument("--delta", required=False, type=int, default=10800)
+
+    # Set up arguments for adapting styler csv
+    adapting_three_gram.add_argument("--in_file", type=Path, required=True)
+    adapting_three_gram.add_argument("--out_file", type=Path, required=True)
 
     return arg_parser
 

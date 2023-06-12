@@ -126,12 +126,12 @@ class Operations(Enum):
     Enum of operations that can be performed.
     """
 
-    # INSERT_SPACE = InsertOperation(" ")
+    INSERT_SPACE = InsertOperation(" ")
     INSERT_TAB = InsertOperation("\t")
-    # INSERT_NL = InsertOperation("\n")
-    # DELETE_TAB = DeleteOperation("\t")
-    # DELETE_SPACE = DeleteOperation(" ")
-    # DELETE_NL = DeleteOperation("\n")
+    INSERT_NL = InsertOperation("\n")
+    DELETE_TAB = DeleteOperation("\t")
+    DELETE_SPACE = DeleteOperation(" ")
+    DELETE_NL = DeleteOperation("\n")
 
     def __call__(self, code: str) -> str:
         return self.value(code)
