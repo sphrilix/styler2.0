@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import random
@@ -33,6 +34,9 @@ from src.styler2_0.utils.utils import (
     retry,
     save_content_to_file,
 )
+
+CURR_DIR = os.path.dirname(os.path.relpath(__file__))
+CSV_PATH = Path(os.path.join(CURR_DIR, "../../../csv/three_grams.csv"))
 
 
 def _insert(char: str, string: str) -> str:
@@ -315,17 +319,18 @@ class RandomGenerator(ViolationGenerator):
 
 @dataclass(frozen=True)
 class ThreeGram:
-    token_before: Token | None
-    whitespace: Whitespace
-    token_after: Token | None
+    token_before: str
+    whitespace: str
+    token_after: str
+    count: int
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, ThreeGram):
             return False
         return (
-            str(self.token_before) == str(other.token_before)
-            and str(self.whitespace) == str(other.whitespace)
-            and str(self.token_after) == str(other.token_after)
+            self.token_before == other.token_before
+            and self.whitespace == other.whitespace
+            and self.token_after == other.token_after
         )
 
     def __ne__(self, other: Any) -> bool:
@@ -336,9 +341,10 @@ class ThreeGram:
 
     def __repr__(self) -> str:
         return (
-            f"[{str(self.token_before)}, "
-            f"{str(self.whitespace)}, "
-            f"{str(self.token_after)}]"
+            f"[{self.token_before}, "
+            f"{self.whitespace}, "
+            f"{self.token_after}, "
+            f"{self.count}]"
         )
 
 
@@ -348,14 +354,14 @@ class ThreeGramGenerator(ViolationGenerator):
     """
 
     def _preprocessing_steps(self) -> None:
-        self.__collect_3_grams()
+        self.__load_three_grams()
 
     def _postprocessing_steps(self) -> None:
         pass
 
     def _generate_violation(self, tokens: list[Token]) -> str:
-        three_gram = random.choice(list(self.__build_3_grams(tokens)))
-        alternatives_with_prob = self.__get_alternatives_with_prob(three_gram)
+        three_gram = random.choice(list(self.__build_3_grams_from_tokens(tokens)))
+        alternatives_with_prob = self.__get_alternatives_with_prob(three_gram[0])
         if not alternatives_with_prob:
             raise OperationNonApplicableException
         weights = list(alternatives_with_prob.values())
@@ -365,20 +371,29 @@ class ThreeGramGenerator(ViolationGenerator):
             )
         )
         new_ws = random.choices(choices, weights)
-        three_gram.whitespace.text = new_ws[0].text
+        three_gram[1].text = Whitespace.parse_tokenized_str(new_ws[0])
         return "".join(stream(tokens).map(lambda token: token.de_tokenize()))
 
-    def __collect_3_grams(self) -> None:
-        self.three_grams = {}
-        for source in self.non_violated_sources:
-            tokens = tokenize_java_code(read_content_of_file(source))
-            three_grams = self.__build_3_grams(tokens)
-            for three_gram in three_grams:
-                self.three_grams.setdefault(three_gram, 0)
-                self.three_grams[three_gram] += 1
+    def __load_three_grams(self) -> None:
+        if not CSV_PATH.exists():
+            raise FileNotFoundError("The csv/three_grams.csv does not exist.")
+
+        self.three_grams = list(self.__build_3_grams_from_csv())
 
     @staticmethod
-    def __build_3_grams(tokens: list[Token]) -> Generator[ThreeGram, Any, None]:
+    def __build_3_grams_from_csv() -> Generator[ThreeGram, Any, None]:
+        with open(CSV_PATH) as three_grams_file:
+            csv_reader = csv.reader(three_grams_file)
+
+            # Skip header
+            next(csv_reader, None)
+            for row in csv_reader:
+                yield ThreeGram(row[0], row[1], row[2], int(row[3]))
+
+    @staticmethod
+    def __build_3_grams_from_tokens(
+        tokens: list[Token],
+    ) -> Generator[(ThreeGram, Whitespace), Any, None]:
         whitespaces = (
             stream(tokens).filter(lambda token: isinstance(token, Whitespace)).to_list()
         )
@@ -386,29 +401,27 @@ class ThreeGramGenerator(ViolationGenerator):
             idx = tokens.index(whitespace)
             token_before = None if idx == 0 else tokens[idx - 1]
             token_after = None if idx == len(tokens) - 1 else tokens[idx + 1]
-            yield ThreeGram(token_before, whitespace, token_after)
+            yield ThreeGram(
+                str(token_before), str(whitespace), str(token_after), -1
+            ), whitespace
 
     def __get_alternatives_with_prob(
         self, three_gram: ThreeGram
     ) -> dict[ThreeGram, float]:
         alternatives = (
-            stream(list(self.three_grams.items()))
+            stream(self.three_grams)
+            .filter(lambda tg: tg != three_gram)
             .filter(
-                lambda entry: str(entry[0].token_before) == str(three_gram.token_before)
-                and str(entry[0].token_after) == str(three_gram.token_after)
-                and str(entry[0].whitespace) != str(three_gram.whitespace)
+                lambda tg: tg.token_before == three_gram.token_before
+                and tg.token_after == three_gram.token_after
             )
-            .to_dict()
+            .to_list()
         )
-        total = (
-            alternatives.items()
-            .map(lambda entry: entry[1])
-            .reduce(lambda entry1, entry2: entry1 + entry2, 0)
+        total = alternatives.map(lambda entry: entry.count).reduce(
+            lambda entry1, entry2: entry1 + entry2, 0
         )
         return dict(
-            alternatives.items()
-            .map(lambda entry: (entry[0], entry[1] / total))
-            .to_dict()
+            alternatives.map(lambda entry: (entry, entry.count / total)).to_dict()
         )
 
 

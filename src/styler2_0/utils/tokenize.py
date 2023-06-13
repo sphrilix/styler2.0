@@ -8,14 +8,14 @@ from src.styler2_0.utils.checkstyle import CheckstyleReport, Violation
 from src.styler2_0.utils.java import Lexeme, lex_java
 
 #######################################################################################
-# DISCLAIMER!
-# The preprocessing is not entirely identical because in the Styler preprocessing, 2
-# bugs were identified:
-#
-# 1. Whitespaces before line breaks were simply omitted.
-#
-# 2. If a whitespace contained tabs and spaces, it was encoded only with the first
-#   type and the second one was simply omitted.
+# DISCLAIMER!                                                                         #
+# The preprocessing is not entirely identical because in the Styler preprocessing, 2  #
+# bugs were identified:                                                               #
+#                                                                                     #
+# 1. Whitespaces before line breaks were simply omitted.                              #
+#                                                                                     #
+# 2. If a whitespace contained tabs and spaces, it was encoded only with the first    #
+#   type and the second one was simply omitted.                                       #
 #######################################################################################
 
 JAVA_OPERATORS = [
@@ -177,6 +177,32 @@ class Whitespace(Token):
                 return f"{len(whitespace)}_SP"
             case _:
                 raise ValueError("There was a non-whitespace char passed.")
+
+    @staticmethod
+    def parse_tokenized_str(tokenized_str: str) -> str:
+        """
+        Process a tokenized whitespace to the real representation.
+        :param tokenized_str: The tokenized str representation.
+        :return: Returns the real representation.
+        """
+        splits = re.sub(r"(ID|DD)_", "", tokenized_str).split("_")
+        types = splits[1::2]
+        amounts = splits[::2]
+        sub_parts = []
+        for ws_type, amount in zip(types, amounts, strict=True):
+            match ws_type:
+                case "TB":
+                    sub_str = "\t"
+                case "SP":
+                    sub_str = " "
+                case "NL":
+                    sub_str = "\n"
+                case "None":
+                    sub_str = ""
+                case _:
+                    raise ValueError("Non whitespace str passed.")
+            sub_parts.append(f"{int(amount)*sub_str}")
+        return "".join(sub_parts)
 
 
 class Comment(Token):
