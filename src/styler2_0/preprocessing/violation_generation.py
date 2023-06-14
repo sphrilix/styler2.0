@@ -221,7 +221,7 @@ class ViolationGenerator(ABC):
         """
         self._preprocessing_steps()
         os.makedirs(self.save_path, exist_ok=True)
-        with tqdm(total=self.n) as progress_bar:
+        with tqdm(total=self.n, desc="Generate violations") as progress_bar:
             start = time.time()
             valid_violations = 0
             while valid_violations < self.n and time.time() - start < self.delta:
@@ -249,24 +249,26 @@ class ViolationGenerator(ABC):
         self._generate_metadata()
 
     def _generate_metadata(self) -> None:
-        for sample_dir in os.listdir(self.save_path):
-            curr_dir = self.save_path / Path(sample_dir)
-            for _, _, files in os.walk(curr_dir):
-                violated, non_violated = None, None
-                for file in files:
-                    if file.startswith("VIOLATED"):
-                        violated = curr_dir / Path(file)
-                    elif file.endswith(".java"):
-                        non_violated = curr_dir / Path(file)
-                if not non_violated or not violated:
-                    continue
-                metadata = Metadata(
-                    non_violated,
-                    violated,
-                    self.checkstyle_config,
-                    self.checkstyle_version,
-                )
-                metadata.save_to_directory(curr_dir)
+        with tqdm(total=self.n, desc="Generate metadata") as progress_bar:
+            for sample_dir in os.listdir(self.save_path):
+                curr_dir = self.save_path / Path(sample_dir)
+                for _, _, files in os.walk(curr_dir):
+                    violated, non_violated = None, None
+                    for file in files:
+                        if file.startswith("VIOLATED"):
+                            violated = curr_dir / Path(file)
+                        elif file.endswith(".java"):
+                            non_violated = curr_dir / Path(file)
+                    if not non_violated or not violated:
+                        continue
+                    progress_bar.update()
+                    metadata = Metadata(
+                        non_violated,
+                        violated,
+                        self.checkstyle_config,
+                        self.checkstyle_version,
+                    )
+                    metadata.save_to_directory(curr_dir)
 
 
 class RandomGenerator(ViolationGenerator):
@@ -282,7 +284,6 @@ class RandomGenerator(ViolationGenerator):
 
     def _generate_violation(self, tokens: list[Token]) -> str:
         operation = random.choice(list(Operations)).value
-        print(operation)
         applicable_tokens = self._get_applicable_tokens(operation, tokens)
         if not applicable_tokens:
             raise OperationNonApplicableException(

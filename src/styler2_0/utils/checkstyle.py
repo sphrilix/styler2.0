@@ -32,6 +32,12 @@ CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
 
 
+class NotSuppoertedVersionException(Exception):
+    """
+    Exception that is raised whenever no suitable checkstyle version is found.
+    """
+
+
 class WrongViolationAmountException(Exception):
     """
     Exception that is raised whenever a code snippet does not contain the expected
@@ -241,3 +247,20 @@ def _parse_violations(raw_violations: list[Xml.Element]) -> frozenset[Violation]
 
 def _get_violation_name(raw_violation: Xml.Element) -> str:
     return raw_violation.attrib.get("source").split(".")[-1].replace("Check", "")
+
+
+def find_version_by_trying(config: Path, project_dir: Path) -> str:
+    """
+    If there is not a checkstyle version provided, find the correct version
+    by trying out all available ones.
+    :param config: The path to the found config.
+    :param project_dir: The directory
+    :return: Returns the working version
+    """
+    for version in AVAILABLE_VERSIONS:
+        try:
+            run_checkstyle_on_dir(project_dir, version, config)
+            return version
+        except Xml.ParseError:
+            continue
+    raise NotSuppoertedVersionException("No suitable checkstyle version found.")

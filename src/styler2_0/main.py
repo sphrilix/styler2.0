@@ -13,7 +13,11 @@ from src.styler2_0.preprocessing.violation_generation import (
     Protocol,
     generate_n_violations,
 )
-from src.styler2_0.utils.checkstyle import find_checkstyle_config, run_checkstyle_on_dir
+from src.styler2_0.utils.checkstyle import (
+    find_checkstyle_config,
+    find_version_by_trying,
+    run_checkstyle_on_dir,
+)
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
@@ -70,7 +74,10 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
 
     version = parsed_args.version
     if not version:
-        version = get_checkstyle_version_of_project(source)
+        try:
+            version = get_checkstyle_version_of_project(source)
+        except AttributeError:
+            version = find_version_by_trying(config, source)
 
     checkstyle_report = run_checkstyle_on_dir(source, version, config)
 
