@@ -1,3 +1,4 @@
+import copy
 import csv
 import json
 import os
@@ -203,7 +204,10 @@ class ViolationGenerator(ABC):
         :param tokens: Tokens of the non violated file.
         :return: Returns violated Java code.
         """
-        return self._generate_violation(tokens)
+
+        # Copy tokens to ensure only one altering in each file.
+        copied_tokens = copy.deepcopy(tokens)
+        return self._generate_violation(copied_tokens)
 
     @abstractmethod
     def _generate_violation(self, tokens: list[Token]) -> str:
