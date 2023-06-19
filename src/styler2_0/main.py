@@ -9,6 +9,7 @@ from typing import Any
 
 from streamerate import stream
 
+from src.styler2_0.preprocessing.model_preprocessing import preprocessing
 from src.styler2_0.preprocessing.violation_generation import (
     Protocol,
     generate_n_violations,
@@ -30,9 +31,9 @@ class TaskNotSupportedException(Exception):
 
 
 class Tasks(Enum):
-    RUN_CHECKSTYLE = "RUN_CHECKSTYLE"
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
     ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
+    PREPROCESSING = "PREPROCESSING"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -51,6 +52,8 @@ def main(args: list[str]) -> int:
             _run_violation_generation(parsed_args)
         case Tasks.ADAPT_THREE_GRAMS:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
+        case Tasks.PREPROCESSING:
+            preprocessing(parsed_args.violation_dir, parsed_args.splits)
         case _:
             return 1
     return 0
@@ -108,6 +111,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     sub_parser = arg_parser.add_subparsers(dest="command", required=True)
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
+    preprocessing = sub_parser.add_parser(str(Tasks.PREPROCESSING))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -125,6 +129,12 @@ def _set_up_arg_parser() -> ArgumentParser:
     # Set up arguments for adapting styler csv
     adapting_three_gram.add_argument("--in_file", type=Path, required=True)
     adapting_three_gram.add_argument("--out_file", type=Path, required=True)
+
+    # Set up arguments for model preprocessing
+    preprocessing.add_argument("--violation_dir", type=Path, required=True)
+    preprocessing.add_argument(
+        "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
+    )
 
     return arg_parser
 

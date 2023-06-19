@@ -465,7 +465,7 @@ class Metadata:
             "config": str(self.config),
             "version": self.version,
             "non_violated_str": self.non_violated_str,
-            "violated_Str": self.violated_str,
+            "violated_str": self.violated_str,
         }
         return json.dumps(json_dict)
 
