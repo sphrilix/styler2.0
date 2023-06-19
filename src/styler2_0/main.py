@@ -111,7 +111,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     sub_parser = arg_parser.add_subparsers(dest="command", required=True)
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
-    preprocessing = sub_parser.add_parser(str(Tasks.PREPROCESSING))
+    preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -131,8 +131,8 @@ def _set_up_arg_parser() -> ArgumentParser:
     adapting_three_gram.add_argument("--out_file", type=Path, required=True)
 
     # Set up arguments for model preprocessing
-    preprocessing.add_argument("--violation_dir", type=Path, required=True)
-    preprocessing.add_argument(
+    preprocessing_sub_parser.add_argument("--violation_dir", type=Path, required=True)
+    preprocessing_sub_parser.add_argument(
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
 
