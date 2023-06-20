@@ -20,7 +20,7 @@ TRG_VOCAB_FILE = Path("trg_vocab.txt")
 INPUT_TXT = Path("input.txt")
 GROUND_TRUTH_TXT = Path("ground_truth.txt")
 MODEL_DATA_PATH = Path("../../model_data")
-VOCAB_SPECIAL_TOKEN = ["<GO>", "<SOS>", "<EOS>", "<UNK>", "<PAD>"]
+VOCAB_SPECIAL_TOKEN = ["<SOS>", "<EOS>", "<UNK>", "<PAD>"]
 
 
 def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
