@@ -1,3 +1,4 @@
+import json
 import os
 from math import isclose
 from pathlib import Path
@@ -14,11 +15,12 @@ TRAIN_PATH = Path("train/")
 VAL_PATH = Path("val/")
 TEST_PATH = Path("test/")
 DATA_JSON = Path("data.json")
-VOCAB_FILE = Path("vocab.txt")
+SRC_VOCAB_FILE = Path("src_vocab.txt")
+TRG_VOCAB_FILE = Path("trg_vocab.txt")
 INPUT_TXT = Path("input.txt")
 GROUND_TRUTH_TXT = Path("ground_truth.txt")
 MODEL_DATA_PATH = Path("../../model-data")
-VOCAB_SPECIAL_TOKEN = ["<GO>", "<EOS>", "<UNK>", "<PAD>"]
+VOCAB_SPECIAL_TOKEN = ["<GO>", "<SOS>", "<EOS>", "<UNK>", "<PAD>"]
 
 
 def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
@@ -52,55 +54,71 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         copytree(violation_dir / Path(violation), complete_test / Path(violation))
 
 
-def _build_vocab(violation_dir: Path) -> bidict[int, str]:
-    build_vocab_path = (
+def _build_vocab(violation_dir: Path) -> tuple[dict[int, str], dict[int, str]]:
+    build_vocabs_path = (
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / TRAIN_PATH
     )
-    metadata = VOCAB_SPECIAL_TOKEN
-    for violation in os.listdir(build_vocab_path):
+    metadata = []
+    for violation in os.listdir(build_vocabs_path):
         metadata_json_content = read_content_of_file(
-            build_vocab_path / Path(violation) / DATA_JSON
+            build_vocabs_path / Path(violation) / DATA_JSON
         )
         metadata.append(Metadata.from_json(metadata_json_content))
-    vocab_dict = bidict(
-        stream(metadata)
-        .flatMap(lambda md: _get_vocabs_from_metadata(md))
-        .to_set()
-        .enumerate()
-        .to_dict()
+    vocab_dict = stream(_get_vocabs_from_metadata(metadata)).map(
+        lambda vocab: dict(stream(vocab).enumerate().to_dict())
+    )
+    src_vocab = vocab_dict.next()
+    trg_vocab = vocab_dict.next()
+    save_content_to_file(
+        violation_dir
+        / MODEL_DATA_PATH
+        / _get_protocol_from_path(violation_dir)
+        / SRC_VOCAB_FILE,
+        str(src_vocab),
     )
     save_content_to_file(
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
-        / VOCAB_FILE,
-        str(vocab_dict),
+        / TRG_VOCAB_FILE,
+        str(trg_vocab),
     )
-    return vocab_dict
+    return src_vocab, trg_vocab
 
 
-def _build_inputs_from_vocab(input_dir: Path, vocab: bidict) -> None:
+def _build_inputs_from_vocab(
+    input_dir: Path, src_vocab: bidict[int, str], trg_vocab: bidict[int, str]
+) -> None:
     model_input = []
     ground_truth = []
     for violation in os.listdir(input_dir):
         metadata = Metadata.from_json(
             read_content_of_file(input_dir / violation / DATA_JSON)
         )
-        violated_tokens = metadata.violated_str.split(" ")
-        non_violated_tokens = metadata.non_violated_str.split(" ")
+        violated_tokens = ["<SOS>"] + metadata.violated_str.split(" ") + ["<EOS>"]
+        non_violated_tokens = (
+            ["<SOS>"] + metadata.non_violated_str.split(" ") + ["<EOS>"]
+        )
         violated_ids = " ".join(
-            str(_map_token_to_id(token, vocab)) for token in violated_tokens
+            str(_map_token_to_id(token, src_vocab)) for token in violated_tokens
         )
         non_violated_ids = " ".join(
-            str(_map_token_to_id(token, vocab)) for token in non_violated_tokens
+            str(_map_token_to_id(token, trg_vocab)) for token in non_violated_tokens
         )
         model_input.append(violated_ids)
         ground_truth.append(non_violated_ids)
     save_content_to_file(input_dir / INPUT_TXT, "\n".join(model_input))
     save_content_to_file(input_dir / GROUND_TRUTH_TXT, "\n".join(ground_truth))
+
+
+def _load_vocab(violation_dir: Path, vocab: Path) -> bidict[int, str]:
+    vocab_path = (
+        violation_dir / MODEL_DATA_PATH / _get_protocol_from_path(violation_dir) / vocab
+    )
+    return bidict(json.loads(read_content_of_file(vocab_path)))
 
 
 def _map_token_to_id(token: str, vocab: bidict) -> int:
@@ -109,12 +127,21 @@ def _map_token_to_id(token: str, vocab: bidict) -> int:
     return vocab.inverse["<UNK>"]
 
 
-def _get_vocabs_from_metadata(metadata: Metadata | str) -> list[str]:
-    if isinstance(metadata, str):
-        return [metadata]
-    violated_vocab = metadata.violated_str.split(" ")
-    non_violated_vocab = metadata.non_violated_str.split(" ")
-    return violated_vocab + non_violated_vocab
+# def _get_vocabs_from_metadata(metadata: Metadata) -> stream:
+#     violated_vocab = metadata.violated_str.split(" ")
+#     non_violated_vocab = metadata.non_violated_str.split(" ")
+#     return stream(list[stream(violated_vocab), stream(non_violated_vocab)])
+
+
+def _get_vocabs_from_metadata(metadata: list[Metadata]) -> tuple[set[str], set[str]]:
+    src_vocab = set()
+    trg_vocab = set()
+    src_vocab.update(VOCAB_SPECIAL_TOKEN)
+    trg_vocab.update(VOCAB_SPECIAL_TOKEN)
+    for md in metadata:
+        src_vocab.update(md.violated_str.split(" "))
+        trg_vocab.update(md.non_violated_str.split(" "))
+    return src_vocab, trg_vocab
 
 
 def _get_protocol_from_path(violation_dir: Path) -> Path:
@@ -129,25 +156,30 @@ def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
     :return:
     """
     _build_splits(violation_dir, splits)
-    vocab = _build_vocab(violation_dir)
+    src_vocab, trg_vocab = _build_vocab(violation_dir)
+    src_vocab = bidict(src_vocab)
+    trg_vocab = bidict(trg_vocab)
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / TRAIN_PATH,
-        vocab,
+        src_vocab,
+        trg_vocab,
     )
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / VAL_PATH,
-        vocab,
+        src_vocab,
+        trg_vocab,
     )
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / TEST_PATH,
-        vocab,
+        src_vocab,
+        trg_vocab,
     )
