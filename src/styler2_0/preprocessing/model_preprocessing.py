@@ -19,7 +19,7 @@ SRC_VOCAB_FILE = Path("src_vocab.txt")
 TRG_VOCAB_FILE = Path("trg_vocab.txt")
 INPUT_TXT = Path("input.txt")
 GROUND_TRUTH_TXT = Path("ground_truth.txt")
-MODEL_DATA_PATH = Path("../../model-data")
+MODEL_DATA_PATH = Path("../../model_data")
 VOCAB_SPECIAL_TOKEN = ["<GO>", "<SOS>", "<EOS>", "<UNK>", "<PAD>"]
 
 
@@ -67,11 +67,7 @@ def _build_vocab(violation_dir: Path) -> tuple[dict[int, str], dict[int, str]]:
             build_vocabs_path / Path(violation) / DATA_JSON
         )
         metadata.append(Metadata.from_json(metadata_json_content))
-    vocab_dict = stream(_get_vocabs_from_metadata(metadata)).map(
-        lambda vocab: dict(stream(vocab).enumerate().to_dict())
-    )
-    src_vocab = vocab_dict.next()
-    trg_vocab = vocab_dict.next()
+    src_vocab, trg_vocab = _get_vocabs_from_metadata(metadata)
     save_content_to_file(
         violation_dir
         / MODEL_DATA_PATH
@@ -127,21 +123,28 @@ def _map_token_to_id(token: str, vocab: bidict) -> int:
     return vocab.inverse["<UNK>"]
 
 
-# def _get_vocabs_from_metadata(metadata: Metadata) -> stream:
-#     violated_vocab = metadata.violated_str.split(" ")
-#     non_violated_vocab = metadata.non_violated_str.split(" ")
-#     return stream(list[stream(violated_vocab), stream(non_violated_vocab)])
+def _get_vocabs_from_metadata(
+    metadata: list[Metadata],
+) -> tuple[dict[int, str], dict[int, str]]:
+    src_vocab_tokens = []
+    trg_vocab_tokens = []
+    src_vocab_tokens.append(VOCAB_SPECIAL_TOKEN)
+    trg_vocab_tokens.append(VOCAB_SPECIAL_TOKEN)
 
-
-def _get_vocabs_from_metadata(metadata: list[Metadata]) -> tuple[set[str], set[str]]:
-    src_vocab = set()
-    trg_vocab = set()
-    src_vocab.update(VOCAB_SPECIAL_TOKEN)
-    trg_vocab.update(VOCAB_SPECIAL_TOKEN)
+    # Introduce temporary sets to eliminate duplicates in vocabs and ensuring special
+    # tokens have the same indexes in each vocab (src, trg).
+    temp_src_vocab_tokens = set()
+    temp_trg_vocab_tokens = set()
     for md in metadata:
-        src_vocab.update(md.violated_str.split(" "))
-        trg_vocab.update(md.non_violated_str.split(" "))
-    return src_vocab, trg_vocab
+        temp_src_vocab_tokens.update(md.violated_str.split(" "))
+        temp_trg_vocab_tokens.update(md.non_violated_str.split(" "))
+    src_vocab_tokens.append(temp_src_vocab_tokens)
+    trg_vocab_tokens.append(temp_trg_vocab_tokens)
+
+    src_vocab = stream(src_vocab_tokens).flatMap().enumerate().to_dict()
+    trg_vocab = stream(trg_vocab_tokens).flatMap().enumerate().to_dict()
+
+    return dict(src_vocab), dict(trg_vocab)
 
 
 def _get_protocol_from_path(violation_dir: Path) -> Path:
@@ -157,8 +160,12 @@ def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
     """
     _build_splits(violation_dir, splits)
     src_vocab, trg_vocab = _build_vocab(violation_dir)
+
+    # Convert vocabs to bidict to be easier usable
     src_vocab = bidict(src_vocab)
     trg_vocab = bidict(trg_vocab)
+
+    # Process train examples
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
@@ -167,6 +174,8 @@ def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
         src_vocab,
         trg_vocab,
     )
+
+    # Process val examples
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
@@ -175,6 +184,8 @@ def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
         src_vocab,
         trg_vocab,
     )
+
+    # Process test examples
     _build_inputs_from_vocab(
         violation_dir
         / MODEL_DATA_PATH
