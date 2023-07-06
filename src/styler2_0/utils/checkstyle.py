@@ -2,10 +2,12 @@ import os.path
 import re
 import subprocess
 import xml.etree.ElementTree as Xml
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from shutil import copyfile
 
 from streamerate import stream
 
@@ -264,3 +266,66 @@ def find_version_by_trying(config: Path, project_dir: Path) -> str:
         except Xml.ParseError:
             continue
     raise NotSuppoertedVersionException("No suitable checkstyle version found.")
+
+
+def remove_relative_paths(config_path, save_path):
+    """
+    Removes all relative paths from the given checkstyle config file and saves
+    it to the given save path. Thereby all elements with a relative path
+    (and their children/parents) are removed from the tree root.
+
+    :param config_path: The path to the checkstyle config file.
+    :param save_path: The path to save the modified checkstyle config file.
+    """
+    # Create a new XML file with the same name as the original in the save path
+    copied_file = copyfile(config_path, save_path)
+
+    # Load the XML file
+    tree = ET.parse(config_path)
+    root = tree.getroot()
+
+    # Add parent info to all elements
+    _add_parent_info(root)
+
+    # Remove all relative paths (starting with "/")
+    for property_element in root.findall(".//property"):
+        if property_element is not None and property_element.get("value").startswith(
+            "/"
+        ):
+            # Remove the element and all children/parents from the tree root
+            while property_element not in list(root):
+                property_element = _get_parent(property_element)
+            root.remove(property_element)
+
+    # Remove parent info
+    _strip_parent_info(root)
+
+    # Write everything until "<module name="Checker">" to the new file
+    with open(copied_file, "w") as new_config, open(config_path) as old_config:
+        while True:
+            line = old_config.readline()
+            if '<module name="Checker">' in line:
+                break
+            new_config.write(line)
+
+    # Append the root and all children to the new file
+    with open(copied_file, "a") as new_config:
+        new_config.write(ET.tostring(root, encoding="unicode"))
+
+
+def _add_parent_info(et):
+    for child in et:
+        child.attrib["__my_parent__"] = et
+        _add_parent_info(child)
+
+
+def _strip_parent_info(et):
+    for child in et:
+        child.attrib.pop("__my_parent__", "None")
+        _strip_parent_info(child)
+
+
+def _get_parent(et):
+    if "__my_parent__" in et.attrib:
+        return et.attrib["__my_parent__"]
+    return None
