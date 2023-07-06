@@ -17,6 +17,7 @@ from src.styler2_0.preprocessing.violation_generation import (
 from src.styler2_0.utils.checkstyle import (
     find_checkstyle_config,
     find_version_by_trying,
+    remove_relative_paths,
     run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
@@ -32,6 +33,7 @@ class TaskNotSupportedException(Exception):
 
 class Tasks(Enum):
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
+    CHECKSTYLE = "CHECKSTYLE"
     ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
     PREPROCESSING = "PREPROCESSING"
 
@@ -50,6 +52,8 @@ def main(args: list[str]) -> int:
     match task:
         case Tasks.GENERATE_VIOLATIONS:
             _run_violation_generation(parsed_args)
+        case Tasks.CHECKSTYLE:
+            _run_checkstyle_report(parsed_args)
         case Tasks.ADAPT_THREE_GRAMS:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
@@ -59,9 +63,7 @@ def main(args: list[str]) -> int:
     return 0
 
 
-def _run_violation_generation(parsed_args: Namespace) -> None:
-    protocol = parsed_args.protocol
-    n = parsed_args.n
+def _run_checkstyle_report(parsed_args: Namespace):
     save = parsed_args.save
     source = parsed_args.source
     config = parsed_args.config
@@ -71,9 +73,9 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     if not config:
         config = find_checkstyle_config(source)
 
-    copyfile(config, save / Path("checkstyle.xml"))
+    remove_relative_paths(config, save / Path("checkstyle-modified.xml"))
 
-    config = save / Path("checkstyle.xml")
+    config = save / Path("checkstyle-modified.xml")
 
     version = parsed_args.version
     if not version:
@@ -98,6 +100,17 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
         with suppress(SameFileError):
             copyfile(file, non_violated_dir / file.name)
 
+    return non_violated_dir, version
+
+
+def _run_violation_generation(parsed_args: Namespace) -> None:
+    protocol = parsed_args.protocol
+    n = parsed_args.n
+    save = parsed_args.save
+    config = parsed_args.config
+
+    non_violated_dir, version = _run_checkstyle_report(parsed_args)
+
     violations_dir = save / Path("violations")
     os.makedirs(violations_dir, exist_ok=True)
 
@@ -112,19 +125,20 @@ def _set_up_arg_parser() -> ArgumentParser:
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
     preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
+    checkstyle_sub_parser = sub_parser.add_parser(str(Tasks.CHECKSTYLE))
 
     # Set up arguments for generating violations
+    _add_checkstyle_arguments(generation)
     generation.add_argument(
         "--protocol",
         action=enum_action(Protocol),
         required=False,
     )
     generation.add_argument("--n", type=int, required=True)
-    generation.add_argument("--save", required=True, type=Path)
-    generation.add_argument("--source", required=True, type=Path)
-    generation.add_argument("--config", required=False, type=Path, default=None)
-    generation.add_argument("--version", required=False)
     generation.add_argument("--delta", required=False, type=int, default=10800)
+
+    # Set up arguments for checkstyle
+    _add_checkstyle_arguments(checkstyle_sub_parser)
 
     # Set up arguments for adapting styler csv
     adapting_three_gram.add_argument("--in_file", type=Path, required=True)
@@ -137,6 +151,15 @@ def _set_up_arg_parser() -> ArgumentParser:
     )
 
     return arg_parser
+
+
+def _add_checkstyle_arguments(checkstyle_sub_parser):
+    checkstyle_sub_parser.add_argument("--save", required=True, type=Path)
+    checkstyle_sub_parser.add_argument("--source", required=True, type=Path)
+    checkstyle_sub_parser.add_argument(
+        "--config", required=False, type=Path, default=None
+    )
+    checkstyle_sub_parser.add_argument("--version", required=False)
 
 
 if __name__ == "__main__":
