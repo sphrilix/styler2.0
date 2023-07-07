@@ -287,10 +287,10 @@ def remove_relative_paths(config_path, save_path):
     # Add parent info to all elements
     _add_parent_info(root)
 
-    # Remove all relative paths (starting with "/")
+    # Remove all relative paths (starting with "/" followed by a letter)
     for property_element in root.findall(".//property"):
-        if property_element is not None and property_element.get("value").startswith(
-            "/"
+        if property_element is not None and re.match(
+            r"/[A-Za-z]", property_element.get("value")
         ):
             # Remove the element and all children/parents from the tree root
             while property_element not in list(root):
