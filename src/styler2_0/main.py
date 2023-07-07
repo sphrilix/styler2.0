@@ -22,7 +22,7 @@ from src.styler2_0.utils.checkstyle import (
 )
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
-from src.styler2_0.utils.tested import Tested, split_test_files
+from src.styler2_0.utils.tested import extract_tested_src_files
 from src.styler2_0.utils.utils import enum_action
 
 
@@ -95,18 +95,9 @@ def _run_checkstyle_report(parsed_args: Namespace):
         .to_set()
     )
 
-    # Split the non_violated_files into tested and non-tested files
+    # remove all not tested files and all test files
     if tested:
-        src_files, test_files = split_test_files(non_violated_files)
-
-        evaluator = Tested(test_files)
-
-        # Filter out all files, where the tested function returns false
-        non_violated_files = (
-            stream(src_files)
-            .filter(lambda src_file: evaluator.is_tested(src_file))
-            .to_set()
-        )
+        non_violated_files = extract_tested_src_files(non_violated_files)
 
     non_violated_dir = save / Path("non_violated/")
     os.makedirs(non_violated_dir, exist_ok=True)
