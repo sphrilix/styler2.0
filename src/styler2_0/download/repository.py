@@ -1,7 +1,10 @@
 import csv
 import json
+import os
 
 import requests
+
+from styler2_0.utils.utils import get_unique_filename
 
 API_URL = "https://api.github.com"
 SEARCH = "search"
@@ -9,9 +12,13 @@ COMMITS = "commits"
 CODE = "code"
 REPOS = "repos"
 
+CURR_DIR = os.path.dirname(os.path.relpath(__file__))
+DATA_DIR = os.path.join(CURR_DIR, "../../../data")
+
+MAX_INT = 1000000
+
 # TODO: Use environment variable and add new token
 AUTH_TOKEN = "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"
-MAX_INT = 1000000
 HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
@@ -243,25 +250,45 @@ def get_latest_main_commit(full_name: str, default_branch: str) -> str:
     return sha
 
 
-def save_repos_as_json(data: dict[str, dict[str, str]], file_name: str) -> None:
+def save_repos_as_json(
+    data: dict[str, dict[str, str]],
+    file_name: str,
+    dir_path: str = DATA_DIR,
+    overwrite_existing=False,
+) -> None:
     """
     Saves the given repos as a json file.
     :param data: The data to save.
     :param file_name: The name of the file.
+    :param dir_path: The directory to save the file in.s
+    :param overwrite_existing: If True, the file will be overwritten if it exists.
     """
-    with open(file_name, "w") as file:
+    if not overwrite_existing:
+        file_name = get_unique_filename(dir_path, file_name)
+
+    with open(os.path.join(dir_path, file_name), "w") as file:
         json.dump(data, file)
 
 
-def save_repos_as_csv(data: dict[str, dict[str, str]], file_name: str) -> None:
+def save_repos_as_csv(
+    data: dict[str, dict[str, str]],
+    file_name: str,
+    dir_path: str = DATA_DIR,
+    overwrite_existing=False,
+) -> None:
     """
     Saves the given repos as a csv file.
     The csv file only contains the clone_url and the latest commit of the default
     branch.
     :param data: The data to save.
     :param file_name: The name of the file.
+    :param dir_path: The directory to save the file in.
+    :param overwrite_existing: If True, the file will be overwritten if it exists.
     """
-    with open(file_name, "w") as file:
+    if not overwrite_existing:
+        file_name = get_unique_filename(dir_path, file_name)
+
+    with open(os.path.join(dir_path, file_name), "w") as file:
         writer = csv.writer(file)
         for repo in data.values():
             writer.writerow([repo["clone_url"], repo["latest_commit"]])
@@ -271,7 +298,7 @@ def main():
     # Get the repositories
     data = repos(1)
 
-    # Save the repositories
+    # Save the repositories as json and csv to the data folder
     save_repos_as_json(data, "repos.json")
     save_repos_as_csv(data, "repos.csv")
 

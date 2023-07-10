@@ -149,3 +149,27 @@ def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:
                 files_in_dir.append(Path(subdir) / Path(file))
 
     return files_in_dir
+
+
+def get_unique_filename(dir_path, file_name):
+    """
+    Gets a new unique filename. Therefore, splits of the file extension if any,
+    appends the index "_i" and adds the extension again until the filename is unique.
+    :param dir_path: The directory to save the file in.
+    :param file_name: The name of the file.
+    :return: The new unique filename.
+    """
+    # Split the file extension if any
+    file_name_split = file_name.split(".")
+    file_name_without_extension = file_name_split[0]
+    file_extension = ""
+    if len(file_name_split) > 1:
+        file_extension = "." + file_name_split[1]
+
+    # Get a new unique filename
+    i = 0
+    while os.path.exists(os.path.join(dir_path, file_name)):
+        i += 1
+        file_name = file_name_without_extension + "_" + str(i) + file_extension
+
+    return file_name
