@@ -5,6 +5,7 @@ import os
 import requests
 
 from styler2_0.utils.utils import get_unique_filename
+from styler2_0.utils.yaml_loader import load
 
 API_URL = "https://api.github.com"
 SEARCH = "search"
@@ -17,8 +18,7 @@ DATA_DIR = os.path.join(CURR_DIR, "../../../data")
 
 MAX_INT = 1000000
 
-# TODO: Use environment variable and add new token
-AUTH_TOKEN = "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"
+AUTH_TOKEN = load("credentials.yaml")["github_auth_token"]
 HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
@@ -96,9 +96,16 @@ class RepositorySortCriteria:
         Initializes the sort criteria.
         :param criteria: The sort criteria.
         """
-        if criteria is None:
-            criteria = {}
-        self.criteria = criteria
+        self.criteria = {}
+
+        if criteria is not None and len(criteria) > 0:
+            for key, value in criteria.items():
+                weight = value["weight"]
+                if "reverse" not in value:
+                    self.add(key, weight)
+                else:
+                    reverse = value["reverse"]
+                    self.add(key, weight, reverse)
 
     def add(self, key: str, weight: int, reverse: bool = False) -> None:
         """
@@ -116,6 +123,17 @@ class RepositorySortCriteria:
             self.criteria[key] * item[key] for key in item if key in self.criteria
         )
 
+    @staticmethod
+    def default():
+        """
+        Returns the default sort criteria.
+        :return: The default sort criteria.
+        """
+        sorting_criteria = RepositorySortCriteria()
+        sorting_criteria.add("forks_count", 1)
+        sorting_criteria.add("stargazers_count", 1)
+        return sorting_criteria
+
 
 class RepositoryFilterCriteria:
     """
@@ -130,9 +148,17 @@ class RepositoryFilterCriteria:
         Initializes the filter criteria.
         :param criteria: The filter criteria.
         """
-        if criteria is None:
-            criteria = {}
-        self.criteria = criteria
+        self.criteria = {}
+        if criteria is not None and len(criteria) > 0:
+            for key, value in criteria.items():
+                if isinstance(value, bool):
+                    self.add_bool(key, value)
+                else:
+                    if "min" not in value:
+                        value["min"] = 0
+                    if "max" not in value:
+                        value["max"] = MAX_INT
+                    self.add_range(key, value["min"], value["max"])
 
     def add_bool(self, key: str, boolean: bool) -> None:
         """
@@ -142,14 +168,14 @@ class RepositoryFilterCriteria:
         """
         self.criteria[key] = boolean
 
-    def add_range(self, key: str, min: int, max: int) -> None:
+    def add_range(self, key: str, min_value: int = 0, max_value: int = MAX_INT) -> None:
         """
         Adds a min-max criterion to the filter criteria.
         :param key: The key to filter by.
-        :param min: The minimum value of the criterion.
-        :param max: The maximum value of the criterion.
+        :param min_value: The minimum value of the criterion.
+        :param max_value: The maximum value of the criterion.
         """
-        self.criteria[key] = (min, max)
+        self.criteria[key] = (min_value, max_value)
 
     def custom_filter_key(self, item):
         """
@@ -166,6 +192,24 @@ class RepositoryFilterCriteria:
                 return False
         return True
 
+    @staticmethod
+    def default():
+        """
+        Returns a default filter criteria.
+        :return: The default filter criteria.
+        """
+        filter_criteria = RepositoryFilterCriteria()
+        filter_criteria.add_bool("private", False)
+        filter_criteria.add_bool("fork", False)
+        filter_criteria.add_bool("archived", False)
+        filter_criteria.add_bool("disabled", False)
+        filter_criteria.add_range("stargazers_count", 100, MAX_INT)
+        filter_criteria.add_range("forks_count", 100, MAX_INT)
+        filter_criteria.add_range("watchers_count", 100, MAX_INT)
+        filter_criteria.add_range("open_issues_count", 0, MAX_INT)
+        filter_criteria.add_range("subscribers_count", 10, MAX_INT)
+        return filter_criteria
+
 
 def repos(
     amount: int = 100,
@@ -180,22 +224,11 @@ def repos(
     """
     # Create equally weighted sorting criteria if it is not provided
     if sorting_criteria is None:
-        sorting_criteria = RepositorySortCriteria()
-        sorting_criteria.add("forks_count", 1)
-        sorting_criteria.add("stargazers_count", 1)
+        sorting_criteria = RepositorySortCriteria.default()
 
     # Create filter criteria if it is not provided
     if filter_criteria is None:
-        filter_criteria = RepositoryFilterCriteria()
-        filter_criteria.add_bool("private", False)
-        filter_criteria.add_bool("fork", False)
-        filter_criteria.add_bool("archived", False)
-        filter_criteria.add_bool("disabled", False)
-        filter_criteria.add_range("stargazers_count", 100, MAX_INT)
-        filter_criteria.add_range("forks_count", 100, MAX_INT)
-        filter_criteria.add_range("watchers_count", 100, MAX_INT)
-        filter_criteria.add_range("open_issues_count", 0, MAX_INT)
-        filter_criteria.add_range("subscribers_count", 10, MAX_INT)
+        filter_criteria = RepositoryFilterCriteria.default()
 
     # Get the repositories from GitHub
     per_page = 100
@@ -295,8 +328,15 @@ def save_repos_as_csv(
 
 
 def main():
+    # Load the filter and sorting criteria
+    download_criteria = load("download_criteria.yaml")
+    filter_criteria = RepositoryFilterCriteria(download_criteria["filter_criteria"])
+    sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
+
     # Get the repositories
-    data = repos(1)
+    data = repos(
+        amount=1, filter_criteria=filter_criteria, sorting_criteria=sorting_criteria
+    )
 
     # Save the repositories as json and csv to the data folder
     save_repos_as_json(data, "repos.json")

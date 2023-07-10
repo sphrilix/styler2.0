@@ -1,0 +1,21 @@
+filter_criteria:
+  private: false
+  fork: false
+  archived: false
+  disabled: false
+  stargazers_count:
+    min: 100
+  forks_count:
+    min: 100
+  watchers_count:
+    min: 100
+  open_issues_count:
+    max: 100
+  subscribers_count:
+    min: 10
+
+sorting_criteria:
+  forks_count:
+    weight: 1
+  stargazers_count:
+    weight: 1

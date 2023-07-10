@@ -287,3 +287,6 @@ poetry.toml
 
 # Ignore tmp checkstyle files
 /checkstyle-tmp
+
+# Credentials file
+/src/res/credentials.yaml
