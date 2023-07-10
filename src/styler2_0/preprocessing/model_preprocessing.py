@@ -73,14 +73,14 @@ def _build_vocab(violation_dir: Path) -> tuple[dict[int, str], dict[int, str]]:
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / SRC_VOCAB_FILE,
-        str(src_vocab),
+        json.dumps(src_vocab),
     )
     save_content_to_file(
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
         / TRG_VOCAB_FILE,
-        str(trg_vocab),
+        json.dumps(trg_vocab),
     )
     return src_vocab, trg_vocab
 

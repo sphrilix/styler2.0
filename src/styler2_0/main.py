@@ -22,6 +22,7 @@ from src.styler2_0.utils.checkstyle import (
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
+from styler2_0.models.models import Models, train
 
 
 class TaskNotSupportedException(Exception):
@@ -34,6 +35,7 @@ class Tasks(Enum):
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
     ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
     PREPROCESSING = "PREPROCESSING"
+    TRAIN = "TRAIN"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -54,6 +56,8 @@ def main(args: list[str]) -> int:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
             preprocessing(parsed_args.violation_dir, parsed_args.splits)
+        case Tasks.TRAIN:
+            train(parsed_args.model, parsed_args.path, parsed_args.epochs)
         case _:
             return 1
     return 0
@@ -112,6 +116,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
     preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
+    train_sub_parser = sub_parser.add_parser(str(Tasks.TRAIN))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -135,6 +140,12 @@ def _set_up_arg_parser() -> ArgumentParser:
     preprocessing_sub_parser.add_argument(
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
+
+    # Set up arguments for model training
+    train_sub_parser.add_argument("--model", type=Models, required=True)
+    train_sub_parser.add_argument("--path", type=Path, required=True)
+    train_sub_parser.add_argument("--epochs", type=int, required=True)
+    train_sub_parser.add_argument("--device", choices=("cpu", "gpu"), required=True)
 
     return arg_parser
 
