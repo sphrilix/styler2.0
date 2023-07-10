@@ -83,7 +83,6 @@ class RepositorySortCriteria:
     """
     Class that represents the criteria to sort the repositories.
     The sort criteria is a list of tuples (key, weight).
-    TODO: Add ASC/DESC
     """
 
     def __init__(self, criteria=None) -> None:
@@ -95,12 +94,15 @@ class RepositorySortCriteria:
             criteria = {}
         self.criteria = criteria
 
-    def add(self, key: str, weight: int) -> None:
+    def add(self, key: str, weight: int, reverse: bool = False) -> None:
         """
         Adds a criterion to the sort criteria.
         :param key: The key to sort by.
         :param weight: The weight of the criterion.
+        :param reverse: True if the criterion should be sorted in reverse order.
         """
+        if reverse:
+            weight *= -1
         self.criteria[key] = weight
 
     def custom_sort_key(self, item):
@@ -161,10 +163,11 @@ class RepositoryFilterCriteria:
 
 def repos(
     amount: int = 100,
+    filter_criteria: RepositoryFilterCriteria = None,
     sorting_criteria: RepositorySortCriteria = None,
-    filter_criteria=None,
     keys_to_keep: list = None,
-):
+    include_latest_commit: bool = True,
+) -> dict[str, dict[str, str]]:
     """
     Returns repositories from GitHub that have a pom.xml file and fulfill the filter
     criteria. The returned repositories are sorted by the sorting criteria.
@@ -203,6 +206,13 @@ def repos(
         if filter_criteria.custom_filter_key(value)
     }
 
+    # Add the latest commit of the default branch
+    if include_latest_commit:
+        for key, value in data.items():
+            value["latest_commit"] = get_latest_main_commit(
+                key, value["default_branch"]
+            )
+
     # Remove unnecessary keys if keys_to_keep is provided
     if keys_to_keep and len(keys_to_keep) > 0:
         all_keys = list(data.values())[0]
@@ -222,7 +232,6 @@ def get_latest_main_commit(full_name: str, default_branch: str) -> str:
     :param full_name: The full name of the repository.
     :param default_branch: The default branch of the repository.
     """
-    # Get the latest commit of the default branch
     url = API_URL + "/" + REPOS + "/" + full_name + "/" + COMMITS + "/" + default_branch
 
     response = requests.get(url, headers=HEADERS)
@@ -253,12 +262,6 @@ def save_repos_as_csv(data: dict[str, dict[str, str]], file_name: str) -> None:
     :param data: The data to save.
     :param file_name: The name of the file.
     """
-    for repo in data.values():
-        if "latest_commit" not in repo or repo["latest_commit"] is None:
-            repo["latest_commit"] = get_latest_main_commit(
-                repo["full_name"], repo["default_branch"]
-            )
-
     with open(file_name, "w") as file:
         writer = csv.writer(file)
         for repo in data.values():
