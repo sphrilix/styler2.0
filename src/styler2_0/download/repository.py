@@ -15,9 +15,6 @@ MAX_INT = 1000000
 HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
-# TODO: Work with python class instead of dict?
-
-
 class DownloadFailedException(Exception):
     """
     Exception that is thrown whenever the download failed.
@@ -53,6 +50,8 @@ def get_checkstyle_repos(
                 # Open the repository url and save the json
                 repository_response = requests.get(repository_url, headers=HEADERS)
                 if repository_response.status_code == 200:
+                    # Turn the json into a Munch object
+                    # repository_response_json = munchify(repository_response.json())
                     repository_response_json = repository_response.json()
                     data[repository_name] = repository_response_json
                 else:
