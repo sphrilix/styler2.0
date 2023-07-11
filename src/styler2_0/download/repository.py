@@ -30,7 +30,7 @@ class DownloadFailedException(Exception):
     """
 
 
-def get_checkstyle_repos(
+def _get_checkstyle_repos(
     per_page: int = 100, first_page: int = 1, last_page: int = 1
 ) -> tuple[dict[Any, Any], str | int] | tuple[Any, Any]:
     """
@@ -86,7 +86,7 @@ def get_checkstyle_repos(
             return data, query_params["page"]
 
 
-def remove_keys(
+def _remove_keys(
     data: dict[str, dict[str, str]], keys: list[str]
 ) -> dict[str, dict[str, str]]:
     """
@@ -231,7 +231,7 @@ class RepositoryFilterCriteria:
         return filter_criteria
 
 
-def repos(
+def download_repos(
     amount: int = 100,
     keys_to_keep: list = None,
     first_page: int = 1,
@@ -248,13 +248,13 @@ def repos(
     if amount < 100:
         per_page = amount
     last_page = amount // per_page
-    data, last_downloaded_page = get_checkstyle_repos(per_page, first_page, last_page)
+    data, last_downloaded_page = _get_checkstyle_repos(per_page, first_page, last_page)
 
     # Remove unnecessary keys if keys_to_keep is provided
     if keys_to_keep and len(keys_to_keep) > 0:
         all_keys = list(data.values())[0]
         keys_to_remove = [key for key in all_keys if key not in keys_to_keep]
-        data = remove_keys(data, keys_to_remove)
+        data = _remove_keys(data, keys_to_remove)
 
     return data, last_downloaded_page
 
@@ -266,7 +266,7 @@ def add_latest_commit(data: dict[str, dict[str, str]]) -> dict[str, dict[str, st
     """
     try:
         for key, value in data.items():
-            value["latest_commit"] = get_latest_commit(key, value["default_branch"])
+            value["latest_commit"] = _get_latest_commit(key, value["default_branch"])
     except DownloadFailedException as e:
         print(e)
     return data
@@ -306,7 +306,7 @@ def filter_repos(
     return data
 
 
-def get_latest_commit(full_name: str, default_branch: str) -> str:
+def _get_latest_commit(full_name: str, default_branch: str) -> str:
     """
     Returns the latest commit of the default branch of the repository.
     :param full_name: The full name of the repository.
@@ -342,6 +342,16 @@ def save_repos_as_json(
 
     with open(os.path.join(dir_path, file_name), "w") as file:
         json.dump(data, file)
+
+
+def load_repos_from_json(file_name: str, dir_path: str = DATA_DIR) -> dict[str, dict]:
+    """
+    Loads the repositories from the given json file.
+    :param file_name: The name of the file.
+    :param dir_path: The directory to load the file from.
+    """
+    with open(os.path.join(dir_path, file_name)) as file:
+        return json.load(file)
 
 
 def save_repos_as_csv(
@@ -391,7 +401,7 @@ def main():
     sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
 
     # Get the repositories
-    data, last_downloaded_page = repos(amount=1)
+    data, last_downloaded_page = download_repos(amount=1)
     print(f"Last downloaded page: {last_downloaded_page}")
 
     # Get the remaining requests
