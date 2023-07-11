@@ -27,7 +27,7 @@ def test_download_repos():
 
 def test_get_remaining_requests():
     amount = get_remaining_requests()
-    assert amount > 0
+    assert amount != -1
 
 
 def test_load_save_repos():

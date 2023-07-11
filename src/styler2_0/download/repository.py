@@ -448,12 +448,17 @@ def get_remaining_requests():
     Returns the amount of remaining requests.
     """
     response = requests.get(API_URL + "/" + RATE_LIMIT, headers=HEADERS)
-    data = response.json()
+    raw_data = response.json()
+    used_data = {}
 
     if response.status_code == 200:
-        return data["rate"]["remaining"]
+        for key, value in raw_data["resources"].items():
+            if value["used"] != 0:
+                used_data[key] = f"{value['used']} / {value['limit']}"
+    else:
+        return -1
 
-    return -1
+    return used_data
 
 
 def main():
@@ -466,13 +471,15 @@ def main():
     sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
 
     # Get the repositories
-    data, last_downloaded_page = download_repos(amount=2)
+    data, last_downloaded_page = download_repos(
+        amount=1000000, mode=QueryMode.POM_WITH_CHECKSTYLE
+    )
     print(f"Last downloaded page: {last_downloaded_page}")
 
     # Get the remaining requests
     remaining_requests = get_remaining_requests()
     if remaining_requests != -1:
-        print(f"Remaining requests: {remaining_requests}")
+        print(f"Used requests: {remaining_requests}")
     else:
         print("Could not get the remaining requests.")
 
