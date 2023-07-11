@@ -1,0 +1,25 @@
+filter_criteria:
+  private: False
+  fork: False
+  archived: False
+  disabled: False
+  language: Java
+  stargazers_count:
+    min: 100
+  forks_count:
+    min: 100
+  watchers_count:
+    min: 100
+  open_issues_count:
+#   min: 0 # Default min value
+    max: 100
+  subscribers_count:
+    min: 10
+#   max: 1000000 # Default max value
+
+sorting_criteria:
+  forks_count:
+    weight: 1
+  stargazers_count:
+    weight: 1
+#   reverse: false # Default reverse value

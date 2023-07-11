@@ -216,22 +216,22 @@ class RepositoryFilterCriteria:
         self.criteria = {}
         if criteria is not None and len(criteria) > 0:
             for key, value in criteria.items():
-                if isinstance(value, bool):
-                    self.add_bool(key, value)
-                else:
+                if isinstance(value, dict):
                     if "min" not in value:
                         value["min"] = 0
                     if "max" not in value:
                         value["max"] = MAX_INT
                     self.add_range(key, value["min"], value["max"])
+                else:
+                    self.add_value(key, value)
 
-    def add_bool(self, key: str, boolean: bool) -> None:
+    def add_value(self, key: str, expected: any) -> None:
         """
-        Adds a bool criterion to the filter criteria.
+        Adds a value criterion to the filter criteria.
         :param key: The key to filter by.
-        :param boolean: The value of the criterion.
+        :param expected: The value of the criterion.
         """
-        self.criteria[key] = boolean
+        self.criteria[key] = expected
 
     def add_range(self, key: str, min_value: int = 0, max_value: int = MAX_INT) -> None:
         """
@@ -249,10 +249,9 @@ class RepositoryFilterCriteria:
         """
         for key, value in self.criteria.items():
             if (
-                isinstance(value, bool)
-                and item[key] != value
-                or isinstance(value, tuple)
-                and not value[0] <= item[key] <= value[1]
+                (isinstance(value, bool) and item[key] != value)
+                or (isinstance(value, tuple) and not value[0] <= item[key] <= value[1])
+                or (isinstance(value, str) and item[key] != value)
             ):
                 return False
         return True
@@ -264,10 +263,11 @@ class RepositoryFilterCriteria:
         :return: The default filter criteria.
         """
         filter_criteria = RepositoryFilterCriteria()
-        filter_criteria.add_bool("private", False)
-        filter_criteria.add_bool("fork", False)
-        filter_criteria.add_bool("archived", False)
-        filter_criteria.add_bool("disabled", False)
+        filter_criteria.add_value("private", False)
+        filter_criteria.add_value("fork", False)
+        filter_criteria.add_value("archived", False)
+        filter_criteria.add_value("disabled", False)
+        filter_criteria.add_value("language", "Java")
         filter_criteria.add_range("stargazers_count", 100, MAX_INT)
         filter_criteria.add_range("forks_count", 100, MAX_INT)
         filter_criteria.add_range("watchers_count", 100, MAX_INT)
@@ -320,7 +320,7 @@ def add_latest_commit(data: dict[str, dict[str, str]]) -> dict[str, dict[str, st
     return data
 
 
-def filter_repos(
+def filter_and_sort(
     data: dict[str, dict[str, str]],
     filter_criteria: RepositoryFilterCriteria = None,
     sorting_criteria: RepositorySortCriteria = None,
@@ -402,6 +402,21 @@ def load_repos_from_json(file_name: str, dir_path: str = DATA_DIR) -> dict[str, 
         return json.load(file)
 
 
+def remove_empty_lines(file_name, dir_path):
+    """
+    Removes empty lines from the given file.
+    :param file_name: The name of the file.
+    :param dir_path: The directory of the file.
+    """
+    with open(os.path.join(dir_path, file_name), "r+") as file:
+        lines = file.readlines()
+        file.seek(0)
+        for line in lines:
+            if line.strip() != "":
+                file.write(line)
+        file.truncate()
+
+
 def save_repos_as_csv(
     data: dict[str, dict[str, str]],
     file_name: str,
@@ -424,6 +439,8 @@ def save_repos_as_csv(
         writer = csv.writer(file)
         for repo in data.values():
             writer.writerow([repo["clone_url"], repo["latest_commit"]])
+
+    remove_empty_lines(file_name, dir_path)
 
 
 def get_remaining_requests():
@@ -449,7 +466,7 @@ def main():
     sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
 
     # Get the repositories
-    data, last_downloaded_page = download_repos(amount=1000000)
+    data, last_downloaded_page = download_repos(amount=2)
     print(f"Last downloaded page: {last_downloaded_page}")
 
     # Get the remaining requests
@@ -470,7 +487,7 @@ def main():
     save_repos_as_json(data, "repos_with_latest_commit.json")
 
     # Filter and sort the repositories
-    data = filter_repos(data, filter_criteria, sorting_criteria)
+    data = filter_and_sort(data, filter_criteria, sorting_criteria)
     print(f"Number of repositories after filtering: {len(data)}")
 
     # Save the filtered repositories
