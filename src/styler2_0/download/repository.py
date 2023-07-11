@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from enum import Enum
 from typing import Any
 
 import requests
@@ -23,6 +24,15 @@ MAX_INT = 1000000
 AUTH_TOKEN = load("credentials.yaml")["github_auth_token"]
 HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
+# No search for an exact string match here, but for filenames containing the following:
+GITHUB_CHECKSTYLE_CONF_REG = (
+    "extension:xml "
+    "filename:checkstyle OR "
+    "filename:check-style OR "
+    "filename:sun OR "
+    "filename:google"
+)
+
 
 class DownloadFailedException(Exception):
     """
@@ -30,20 +40,47 @@ class DownloadFailedException(Exception):
     """
 
 
+class QueryMode(Enum):
+    """
+    Enum that defines the query mode for the code search.
+    """
+
+    # Search for repositories that contain "checkstyle" in their pom
+    POM_WITH_CHECKSTYLE = 1
+
+    # Search for repositories that have a checkstyle file
+    CHECKSTYLE_FILE = 2
+
+
+def _build_query(mode: QueryMode) -> str:
+    """
+    Builds the query for the code search.
+    :param mode: The query mode for the code search.
+    """
+    if mode == QueryMode.POM_WITH_CHECKSTYLE:
+        return "checkstyle filename:pom.xml"
+    # elif mode == QueryMode.CHECKSTYLE_FILE:
+    return GITHUB_CHECKSTYLE_CONF_REG
+
+
 def _get_checkstyle_repos(
-    per_page: int = 100, first_page: int = 1, last_page: int = 1
+    per_page: int = 100,
+    first_page: int = 1,
+    last_page: int = 1,
+    mode: QueryMode = QueryMode.CHECKSTYLE_FILE,
 ) -> tuple[dict[Any, Any], str | int] | tuple[Any, Any]:
     """
     Returns the repositories that contain a checkstyle plugin in their pom.xml.
     :param per_page: The amount of repositories per page.
     :param first_page: The first page to fetch.
     :param last_page: The last page to fetch.
+    :param mode: The query mode for the code search.
     :return: Returns a tuple containing the repositories and the last downloaded page.
     """
     # Define the API endpoint and query parameters
     api_url = API_URL + "/" + SEARCH + "/" + CODE
     query_params = {
-        "q": "checkstyle filename:pom.xml",
+        "q": _build_query(mode),
         "per_page": per_page,
         "page": first_page,
     }
@@ -56,8 +93,16 @@ def _get_checkstyle_repos(
 
         # Check the response status code
         if response.status_code == 200:
-            # Convert the response json to a python dictionary and add it to the data
             search_response_json = response.json()
+
+            # Print the total amount of repositories on first request
+            if query_params["page"] == 1:
+                print(
+                    f"Total amount of repositories: "
+                    f"{search_response_json['total_count']}"
+                )
+
+            # Get each repo in the response
             for item in search_response_json["items"]:
                 repository = item["repository"]
                 repository_name = repository["full_name"]
@@ -235,6 +280,7 @@ def download_repos(
     amount: int = 100,
     keys_to_keep: list = None,
     first_page: int = 1,
+    mode: QueryMode = QueryMode.CHECKSTYLE_FILE,
 ) -> tuple[dict[str, dict[str, str]] | Any, Any]:
     """
     Returns repositories from GitHub that have a pom.xml file that contains a checkstyle
@@ -242,13 +288,15 @@ def download_repos(
     :param amount: The amount of repositories to return.
     :param keys_to_keep: The keys to keep in the returned repositories.
     :param first_page: The first page to include in the returned repositories.
-    included in the returned repositories.
+    :param mode: The mode to use to query the repositories.
     """
     per_page = 100
     if amount < 100:
         per_page = amount
     last_page = amount // per_page
-    data, last_downloaded_page = _get_checkstyle_repos(per_page, first_page, last_page)
+    data, last_downloaded_page = _get_checkstyle_repos(
+        per_page, first_page, last_page, mode
+    )
 
     # Remove unnecessary keys if keys_to_keep is provided
     if keys_to_keep and len(keys_to_keep) > 0:
@@ -401,7 +449,7 @@ def main():
     sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
 
     # Get the repositories
-    data, last_downloaded_page = download_repos(amount=1)
+    data, last_downloaded_page = download_repos(amount=1000000)
     print(f"Last downloaded page: {last_downloaded_page}")
 
     # Get the remaining requests
