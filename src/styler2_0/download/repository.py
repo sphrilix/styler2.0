@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from typing import Any
 
 import requests
 
@@ -12,6 +13,7 @@ SEARCH = "search"
 COMMITS = "commits"
 CODE = "code"
 REPOS = "repos"
+RATE_LIMIT = "rate_limit"
 
 CURR_DIR = os.path.dirname(os.path.relpath(__file__))
 DATA_DIR = os.path.join(CURR_DIR, "../../../data")
@@ -30,7 +32,14 @@ class DownloadFailedException(Exception):
 
 def get_checkstyle_repos(
     per_page: int = 100, first_page: int = 1, last_page: int = 1
-) -> dict[str, dict[str, str]]:
+) -> tuple[dict[Any, Any], str | int] | tuple[Any, Any]:
+    """
+    Returns the repositories that contain a checkstyle plugin in their pom.xml.
+    :param per_page: The amount of repositories per page.
+    :param first_page: The first page to fetch.
+    :param last_page: The last page to fetch.
+    :return: Returns a tuple containing the repositories and the last downloaded page.
+    """
     # Define the API endpoint and query parameters
     api_url = API_URL + "/" + SEARCH + "/" + CODE
     query_params = {
@@ -62,23 +71,30 @@ def get_checkstyle_repos(
                     repository_response_json = repository_response.json()
                     data[repository_name] = repository_response_json
                 else:
-                    raise DownloadFailedException("Download failed.")
+                    # Request failed -> Return the current data and the last page
+                    return data, query_params["page"]
 
             # Check if there are more pages to fetch
             if "next" in response.links and query_params["page"] < last_page:
                 # Update the query parameters to fetch the next page
                 query_params["page"] += 1
             else:
-                # No more pages, exit the loop
-                break
+                # No more pages
+                return data, query_params["page"]
         else:
-            raise DownloadFailedException("Download failed.")
-    return data
+            # Request failed -> Return the current data and the last page
+            return data, query_params["page"]
 
 
 def remove_keys(
     data: dict[str, dict[str, str]], keys: list[str]
 ) -> dict[str, dict[str, str]]:
+    """
+    Removes the given keys from the given data.
+    :param data: The given data.
+    :param keys: The given keys.
+    :return: Returns the data without the given keys.s
+    """
     for key in keys:
         for item in data.values():
             item.pop(key, None)
@@ -119,6 +135,10 @@ class RepositorySortCriteria:
         self.criteria[key] = weight
 
     def custom_sort_key(self, item):
+        """
+        Returns the custom sort key for the given item.
+        :param item: The given item.
+        """
         return sum(
             self.criteria[key] * item[key] for key in item if key in self.criteria
         )
@@ -213,14 +233,56 @@ class RepositoryFilterCriteria:
 
 def repos(
     amount: int = 100,
+    keys_to_keep: list = None,
+    first_page: int = 1,
+) -> tuple[dict[str, dict[str, str]] | Any, Any]:
+    """
+    Returns repositories from GitHub that have a pom.xml file that contains a checkstyle
+    plugin.
+    :param amount: The amount of repositories to return.
+    :param keys_to_keep: The keys to keep in the returned repositories.
+    :param first_page: The first page to include in the returned repositories.
+    included in the returned repositories.
+    """
+    per_page = 100
+    if amount < 100:
+        per_page = amount
+    last_page = amount // per_page
+    data, last_downloaded_page = get_checkstyle_repos(per_page, first_page, last_page)
+
+    # Remove unnecessary keys if keys_to_keep is provided
+    if keys_to_keep and len(keys_to_keep) > 0:
+        all_keys = list(data.values())[0]
+        keys_to_remove = [key for key in all_keys if key not in keys_to_keep]
+        data = remove_keys(data, keys_to_remove)
+
+    return data, last_downloaded_page
+
+
+def add_latest_commit(data: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+    """
+    Adds the latest commit of the default branch to the repositories.
+    :param data: The repositories to add the latest commit to.
+    """
+    try:
+        for key, value in data.items():
+            value["latest_commit"] = get_latest_commit(key, value["default_branch"])
+    except DownloadFailedException as e:
+        print(e)
+    return data
+
+
+def filter_repos(
+    data: dict[str, dict[str, str]],
     filter_criteria: RepositoryFilterCriteria = None,
     sorting_criteria: RepositorySortCriteria = None,
-    keys_to_keep: list = None,
-    include_latest_commit: bool = True,
 ) -> dict[str, dict[str, str]]:
     """
-    Returns repositories from GitHub that have a pom.xml file and fulfill the filter
-    criteria. The returned repositories are sorted by the sorting criteria.
+    Filters out repositories based on the filter criteria and sorts them based on the
+    sorting criteria.
+    :param data: The repositories to filter and sort.
+    :param filter_criteria: The filter criteria.
+    :param sorting_criteria: The sorting criteria.
     """
     # Create equally weighted sorting criteria if it is not provided
     if sorting_criteria is None:
@@ -230,33 +292,12 @@ def repos(
     if filter_criteria is None:
         filter_criteria = RepositoryFilterCriteria.default()
 
-    # Get the repositories from GitHub
-    per_page = 100
-    if amount < 100:
-        per_page = amount
-    first_page = 1
-    last_page = amount // per_page
-    data = get_checkstyle_repos(per_page, first_page, last_page)
-
     # Filter out repositories based on criteria
     data = {
         key: value
         for key, value in data.items()
         if filter_criteria.custom_filter_key(value)
     }
-
-    # Add the latest commit of the default branch
-    if include_latest_commit:
-        for key, value in data.items():
-            value["latest_commit"] = get_latest_main_commit(
-                key, value["default_branch"]
-            )
-
-    # Remove unnecessary keys if keys_to_keep is provided
-    if keys_to_keep and len(keys_to_keep) > 0:
-        all_keys = list(data.values())[0]
-        keys_to_remove = [key for key in all_keys if key not in keys_to_keep]
-        data = remove_keys(data, keys_to_remove)
 
     # Sort the repositories
     sorted_dict = sorted(data.values(), key=sorting_criteria.custom_sort_key)
@@ -265,7 +306,7 @@ def repos(
     return data
 
 
-def get_latest_main_commit(full_name: str, default_branch: str) -> str:
+def get_latest_commit(full_name: str, default_branch: str) -> str:
     """
     Returns the latest commit of the default branch of the repository.
     :param full_name: The full name of the repository.
@@ -327,20 +368,56 @@ def save_repos_as_csv(
             writer.writerow([repo["clone_url"], repo["latest_commit"]])
 
 
+def get_remaining_requests():
+    """
+    Returns the amount of remaining requests.
+    """
+    response = requests.get(API_URL + "/" + RATE_LIMIT, headers=HEADERS)
+    data = response.json()
+
+    if response.status_code == 200:
+        return data["rate"]["remaining"]
+
+    return -1
+
+
 def main():
+    """
+    Downloads checkstyle repositories and saves them as a json and csv file.
+    """
     # Load the filter and sorting criteria
     download_criteria = load("download_criteria.yaml")
     filter_criteria = RepositoryFilterCriteria(download_criteria["filter_criteria"])
     sorting_criteria = RepositorySortCriteria(download_criteria["sorting_criteria"])
 
     # Get the repositories
-    data = repos(
-        amount=1, filter_criteria=filter_criteria, sorting_criteria=sorting_criteria
-    )
+    data, last_downloaded_page = repos(amount=1)
+    print(f"Last downloaded page: {last_downloaded_page}")
 
-    # Save the repositories as json and csv to the data folder
-    save_repos_as_json(data, "repos.json")
-    save_repos_as_csv(data, "repos.csv")
+    # Get the remaining requests
+    remaining_requests = get_remaining_requests()
+    if remaining_requests != -1:
+        print(f"Remaining requests: {remaining_requests}")
+    else:
+        print("Could not get the remaining requests.")
+
+    # Save the raw repositories
+    save_repos_as_json(data, "repos_raw.json")
+    print(f"Number of repositories: {len(data)}")
+
+    # Add the latest commit to the repositories
+    data = add_latest_commit(data)
+
+    # Save the repositories with the latest commit
+    save_repos_as_json(data, "repos_with_latest_commit.json")
+
+    # Filter and sort the repositories
+    data = filter_repos(data, filter_criteria, sorting_criteria)
+    print(f"Number of repositories after filtering: {len(data)}")
+
+    # Save the filtered repositories
+    save_repos_as_json(data, "repos_filtered.json")
+    save_repos_as_csv(data, "repos_filtered.csv")
 
 
 if __name__ == "__main__":
