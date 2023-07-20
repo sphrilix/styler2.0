@@ -21,8 +21,7 @@ def test_download_repos():
     actual, last_downloaded_page = download_repos(
         amount=1, mode=QueryMode.POM_WITH_CHECKSTYLE
     )
-    expected_key = "debezium/debezium"
-    assert expected_key in actual
+    assert len(actual) == 1
 
 
 def test_get_remaining_requests():
