@@ -28,12 +28,6 @@ mkdir -p "$output_dir"
 # Save the current directory
 current_dir="$PWD"
 
-# Check if Poetry environment is already set up
-if ! poetry env info &> /dev/null; then
-    echo "Poetry environment not found. Installing dependencies..."
-    poetry install
-fi
-
 # Export PYTHONPATH
 export PYTHONPATH="${PYTHONPATH}:${current_dir}"
 
