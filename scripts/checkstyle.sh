@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Usage function to show how to use the script
-usage() {
+# Function to display usage information
+function usage() {
     echo "Usage: $0 <input_directory> <output_directory>"
-    echo "Example: $0 data/ output/"
     exit 1
 }
 
