@@ -2,7 +2,6 @@ import os.path
 import re
 import subprocess
 import xml.etree.ElementTree as Xml
-import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -281,7 +280,7 @@ def remove_relative_paths(config_path, save_path):
     copied_file = copyfile(config_path, save_path)
 
     # Load the XML file
-    tree = ET.parse(config_path)
+    tree = Xml.parse(config_path)
     root = tree.getroot()
 
     # Add parent info to all elements
@@ -310,7 +309,7 @@ def remove_relative_paths(config_path, save_path):
 
     # Append the root and all children to the new file
     with open(copied_file, "a") as new_config:
-        new_config.write(ET.tostring(root, encoding="unicode"))
+        new_config.write(Xml.tostring(root, encoding="unicode"))
 
 
 def _add_parent_info(et):
