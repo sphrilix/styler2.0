@@ -17,7 +17,6 @@ pyxtension = "^1.16.1"
 tqdm = "^4.65.0"
 torch = "^2.0.1"
 bidict = "^0.22.1"
-et = "^0.0.2"
 
 
 [tool.poetry.group.dev.dependencies]
