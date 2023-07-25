@@ -299,11 +299,10 @@ def remove_relative_paths(config_path: Path, save_path: Path) -> None:
     # Remove parent info
     _strip_parent_info(root)
 
-    # Write everything until "<module name="Checker">" to the new file
+    # Write everything until "<module" to the new file
     with open(copied_file, "w") as new_config, open(config_path) as old_config:
-        while True:
-            line = old_config.readline()
-            if '<module name="Checker">' in line:
+        for line in old_config:
+            if line.strip() == "<module":
                 break
             new_config.write(line)
 
