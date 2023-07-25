@@ -86,7 +86,7 @@ Replace all paths with the desired paths.
 == Command Line Parameters
 
 This section explains each of the available command line parameters.
-There are four different run modes available: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, and `CHECKSTYLE`.
+There are four different subcommands available: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, and `CHECKSTYLE`.
 
 === `GENERATE_VIOLATIONS`
 
