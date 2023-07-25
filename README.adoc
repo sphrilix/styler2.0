@@ -10,6 +10,124 @@
 Dependencies are managed with link:{url-poetry}[`poetry`].
 You can set up a virtual environment and the dependencies with `poetry install`.
 
+== Running the application
+
+After poetry is set up, you can run the application with your preferred IDE or from the command line.
+
+=== IDE
+
+1. Open the project in your preferred IDE.
+2. Set the project interpreter to the virtual environment created by poetry.
+3. Run the application with the desired subcommand and options.
+
+=== Command Line
+
+1. Open a terminal and navigate to the project directory.
+2. Activate the virtual environment created by poetry.
+3. Set the PYTHONPATH environment variable to the project directory (replace +<PROJECT_PATH>+).
+4. Run the application with the desired subcommand and options.
+
+Windows example:
+
+[source,bash]
+----
+poetry shell
+set PYTHONPATH=%PYTHONPATH%;<PROJECT_PATH>
+python src/styler2_0/main.py <subcommand> <options>
+----
+
+Linux example:
+
+[source,bash]
+----
+poetry shell
+export PYTHONPATH=$PYTHONPATH:<PROJECT_PATH>
+python src/styler2_0/main.py <subcommand> <options>
+----
+
+Replace `<subcommand>` with one of the four available subcommands: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, or `CHECKSTYLE`.
+Replace `<options>` with the desired options for the subcommand.
+For more information on the available options, use the `-h` or `--help` flag or refer to the command line parameters section.
+
+=== Example usages
+
+If the examples are run from shell, poetry must be activated and the PYTHONPATH environment variable must be set as described above.
+
+* To generate violations with the THREE_GRAM protocol:
+
+[source,bash]
+----
+python src/styler2_0/main.py GENERATE_VIOLATIONS --save </path/to/save> --source </path/to/source> --protocol THREE_GRAM --n 100 --delta 0.5
+----
+
+* To adapt three-grams from an input file and save the results:
+
+[source,bash]
+----
+python src/styler2_0/main.py PREPROCESSING --violation_dir </path/to/violations> --splits 5
+----
+
+* To perform preprocessing on violation files:
+
+[source,bash]
+----
+python src/styler2_0/main.py CHECKSTYLE --save </path/to/save> --source </path/to/source>
+----
+
+* To run checkstyle and save the results:
+
+[source,bash]
+----
+python main.py CHECKSTYLE --save </path/to/save> --source </path/to/source>
+----
+
+Replace all paths with the desired paths.
+
+== Command Line Parameters
+
+This section explains each of the available command line parameters.
+There are four different subcommands available: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, and `CHECKSTYLE`.
+
+=== `GENERATE_VIOLATIONS`
+
+Generate violations for a given source code.
+
+.Options
+--save SAVE:: Specify the path to save the generated violations.
+--source SOURCE:: Specify the source for generating violations.
+--config CONFIG (optional):: Path to the configuration file.
+--version VERSION (optional):: Specify the checkstyle version.
+--tested (optional):: When this flag is set, only tested source code is used for generation.
+--protocol {RANDOM,THREE_GRAM}:: Choose the protocol for generation (either "RANDOM" or "THREE_GRAM").
+--n N:: Number of violations to generate.
+--delta DELTA (optional):: Specify the delta value for the generation process.
+
+=== `ADAPT_THREE_GRAMS`
+
+Adapt three-grams from an input file.
+
+.Options
+--in_file IN_FILE:: Specify the input file for adaptation.
+--out_file OUT_FILE:: Specify the output file after adaptation.
+
+=== `PREPROCESSING`
+
+Perform preprocessing on violation files.
+
+.Options
+--violation_dir VIOLATION_DIR:: Specify the directory containing violation files.
+--splits SPLITS (optional):: Specify the number of splits for preprocessing.
+
+=== `CHECKSTYLE`
+
+Run checkstyle on a given source code.
+
+.Options
+--save SAVE:: Specify the path to save the checkstyle results.
+--source SOURCE:: Specify the source for checkstyle.
+--config CONFIG (optional):: Path to the configuration file.
+--version VERSION (optional):: Specify the checkstyle version.
+--tested (optional):: When this flag is set, only tested source code is used for generation.
 
 == Tests and Linting
 
