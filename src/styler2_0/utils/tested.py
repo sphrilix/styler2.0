@@ -4,7 +4,7 @@ import re
 TEST_REGEX = re.compile(r"test$", re.IGNORECASE)
 
 
-def _split_test_files(files):
+def _split_test_files(files: set) -> (set, set):
     """
     Splits the files into src and test files.
     A file is considered a test file if it matches the test regex.
@@ -24,7 +24,7 @@ def _split_test_files(files):
     return src_files, test_files
 
 
-def extract_tested_src_files(files) -> set:
+def extract_tested_src_files(files: set) -> set:
     """
     Returns the set of tested src files.
     Files are assumed to be a src file if they do not match the test regex.
@@ -42,7 +42,7 @@ def extract_tested_src_files(files) -> set:
     return _tested_files(src_files, test_file_names)
 
 
-def _tested_files(src_files, test_file_names):
+def _tested_files(src_files: set, test_file_names: set) -> set:
     """
     Returns the set of tested src files.
     A file MyClass is considered tested if there exists a file MyClassTest, but also
@@ -61,7 +61,7 @@ def _tested_files(src_files, test_file_names):
     return tested_files
 
 
-def _test_filenames(test_files):
+def _test_filenames(test_files: set) -> set:
     """
     Returns the set of test filenames.
     @param test_files: The test files.
