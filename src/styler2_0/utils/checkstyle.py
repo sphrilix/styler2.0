@@ -302,7 +302,7 @@ def remove_relative_paths(config_path: Path, save_path: Path) -> None:
     # Write everything until "<module" to the new file
     with open(copied_file, "w") as new_config, open(config_path) as old_config:
         for line in old_config:
-            if line.strip() == "<module":
+            if line.strip().startswith("<module"):
                 break
             new_config.write(line)
 
