@@ -267,7 +267,7 @@ def find_version_by_trying(config: Path, project_dir: Path) -> str:
     raise NotSuppoertedVersionException("No suitable checkstyle version found.")
 
 
-def remove_relative_paths(config_path, save_path):
+def remove_relative_paths(config_path: Path, save_path: Path) -> None:
     """
     Removes all relative paths from the given checkstyle config file and saves
     it to the given save path. Thereby all elements with a relative path
