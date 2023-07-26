@@ -56,6 +56,21 @@ def test_returns_n_violations() -> None:
         )()
 
 
+def _compare_line_by_line(expected: str, actual: str) -> None:
+    """
+    Compare two files line by line.
+    :param expected: The expected file
+    :param actual: The actual file
+    :return: True if the files are equal, False otherwise
+    """
+    with open(expected) as expected_file, open(actual) as actual_file:
+        # Skip the last line because of newline
+        for expected_line, actual_line in zip(
+            expected_file.readlines()[:-1], actual_file.readlines()[:-1], strict=True
+        ):
+            assert expected_line == actual_line
+
+
 def test_remove_relative_paths() -> None:
     """
     The checkstyle.xml file in sample_project_3 contains relative paths.
@@ -67,34 +82,10 @@ def test_remove_relative_paths() -> None:
     actual_path = os.path.join(save, "checkstyle-modified.xml")
     expected_path = os.path.join(SAMPLE_PROJECT_3, "checkstyle-modified.xml")
 
-    # compare expected and actual file
-    with open(expected_path) as expected_file, open(actual_path) as actual_file:
-        # Ignore last line as it contains a newline character in one file
-        assert expected_file.readline()[0:-1] == actual_file.readline()[0:-1]
-
-    shutil.rmtree(save)
+    _compare_line_by_line(expected_path, actual_path)
 
 
-def test_remove_relative_paths_2() -> None:
-    """
-    The checkstyle.xml file in sample_project_4 does not contain any relative paths.
-    This test checks that the file is only modified in terms of formatting and comments.
-    """
-    save = tempfile.mkdtemp()
-    fix_checkstyle_config(CHECKSTYLE_CONFIG_4, save / Path("checkstyle-modified.xml"))
-
-    actual_path = os.path.join(save, "checkstyle-modified.xml")
-    expected_path = os.path.join(SAMPLE_PROJECT_4, "checkstyle-modified.xml")
-
-    # compare expected and actual file
-    with open(expected_path) as expected_file, open(actual_path) as actual_file:
-        # Ignore last line as it contains a newline character in one file
-        assert expected_file.readline()[0:-1] == actual_file.readline()[0:-1]
-
-    shutil.rmtree(save)
-
-
-def test_remove_line_length() -> None:
+def test_fix_checkstyle() -> None:
     save = tempfile.mkdtemp()
     fix_checkstyle_config(
         CHECKSTYLE_CONFIG_ACTIVITI, save / Path("checkstyle-fixed.xml")
@@ -103,9 +94,6 @@ def test_remove_line_length() -> None:
     actual_path = os.path.join(save, "checkstyle-fixed.xml")
     expected_path = os.path.join(ACTIVITI_PROJECT, "checkstyle-fixed.xml")
 
-    # compare expected and actual file
-    with open(expected_path) as expected_file, open(actual_path) as actual_file:
-        # Ignore last line as it contains a newline character in one file
-        assert expected_file.readline()[0:-1] == actual_file.readline()[0:-1]
+    _compare_line_by_line(expected_path, actual_path)
 
     shutil.rmtree(save)

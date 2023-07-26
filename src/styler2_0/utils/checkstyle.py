@@ -326,42 +326,6 @@ def _remove_relative_paths(root: Xml.Element) -> None:
             root.remove(property_element)
 
 
-def _remove_line_length(root: Xml.Element) -> None:
-    """
-    Removes LineLength under TreeWalker from the given XML tree.
-    :param root:  The root of the XML tree.
-    :return:  Returns the root of the XML tree without LineLength under TreeWalker.
-    """
-    for module_element in root.findall(".//module"):
-        if (
-            module_element is not None
-            and module_element.get("name") == "LineLength"
-            and _get_parent(module_element).get("name") == "TreeWalker"
-        ):
-            _remove_element(module_element)
-
-
-def _remove_allow_missing_javadoc(root: Xml.Element) -> None:
-    """
-    Removes the allowMissingJavadoc property from JavadocMethod module in TreeWalker.
-    :param root:  The root of the XML tree.
-    :return:  Returns the root of the XML tree without the allowMissingJavadoc property.
-    """
-    for module_element in root.findall(".//module"):
-        if (
-            module_element is not None
-            and module_element.get("name") == "JavadocMethod"
-            and _get_parent(module_element).get("name") == "TreeWalker"
-        ):
-            # Remove the allowMissingJavadoc property
-            for property_element in module_element.findall(".//property"):
-                if (
-                    property_element is not None
-                    and property_element.get("name") == "allowMissingJavadoc"
-                ):
-                    _remove_element(property_element)
-
-
 def _find_modules(root: Xml.Element, parent: str, module: str) -> list[Xml.Element]:
     """
     Finds all modules with the given parent and module name.
@@ -381,7 +345,7 @@ def _find_modules(root: Xml.Element, parent: str, module: str) -> list[Xml.Eleme
     return modules
 
 
-def _find_property(root: Xml.Element, module: str, prop: str) -> list[Xml.Element]:
+def _find_properties(root: Xml.Element, module: str, prop: str) -> list[Xml.Element]:
     """
     Finds all properties with the given module and property name.
     :param root: The root of the XML tree.
@@ -413,7 +377,7 @@ def _remove_from_modules(root: Xml.Element, *args) -> None:
 
     elif len(args) == 3:  # Remove a property
         for module_element in _find_modules(root, args[0], args[1]):
-            for property_element in _find_property(module_element, args[1], args[2]):
+            for property_element in _find_properties(module_element, args[1], args[2]):
                 _remove_element(property_element)
 
     else:
