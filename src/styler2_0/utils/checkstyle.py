@@ -206,6 +206,9 @@ def run_checkstyle_on_dir(
                     checkstyle_process.returncode,
                 )
 
+                # TODO: Why are we not using the xml output but the bytes?
+                # Convert the xml to bytes
+                report = report.encode("utf-8")
                 if checkstyle_process.returncode > 0:
                     report = (
                         b"".join(report.split(b"</checkstyle>")[0:-1])
