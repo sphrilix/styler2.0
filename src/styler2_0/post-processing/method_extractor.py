@@ -58,9 +58,14 @@ def _iterate_methods(file: str) -> dict[str, str]:
     :return: A dictionary containing the method name and the method code.
     """
     # Read the file
-    with open(file) as r:
-        codelines = r.readlines()
-        code_text = "".join(codelines)
+    try:
+        with open(file) as r:
+            codelines = r.readlines()
+            code_text = "".join(codelines)
+    except UnicodeDecodeError as e:
+        logging.warning("Could not read file %s.", file)
+        logging.warning(e)
+        return {}
 
     methods = {}
 
