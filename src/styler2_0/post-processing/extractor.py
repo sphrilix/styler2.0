@@ -24,21 +24,10 @@ def get_processed_projects(input_dir: str) -> (list[str], list[str]):
     for directory in os.listdir(input_dir):
         directory = os.path.join(input_dir, directory)
         if os.path.isdir(directory):
-            logging.info("Checking directory: %s", directory)
-
-            # Get the directory name without the path
-            dir_name = os.path.basename(directory)
-
-            # Create a subfolder for each input folder in the output directory
-            output_subdir = os.path.join(OUTPUT_DIR, dir_name)
-            os.makedirs(output_subdir, exist_ok=True)
-
             # Check if the subfolder NON_VIOLATED exists
             if not os.path.exists(os.path.join(directory, NON_VIOLATED)):
-                logging.warning("%s was not successfully processed.", directory)
                 not_successfully_processed.append(directory)
             else:
-                logging.info("%s was successfully processed.", directory)
                 successfully_processed.append(directory)
 
     return successfully_processed, not_successfully_processed
@@ -56,13 +45,15 @@ def copy_files(input_paths: str, output_dir: str, file_type: str = None) -> None
         # Get the directory name without the path
         dir_name = os.path.basename(path)
 
+        logging.info("Copying files from directory: %s", path)
+
         # Create a subfolder for each input folder in the output directory
         output_subdir = os.path.join(output_dir, dir_name)
         os.makedirs(output_subdir, exist_ok=True)
 
         # Iterate over files in the subfolder NON_VIOLATED of the input directory
-        for file in os.listdir(path):
-            file = os.path.join(path, file)
+        for file in os.listdir(os.path.join(path, NON_VIOLATED)):
+            file = os.path.join(path, NON_VIOLATED, file)
             # Check if the file is a file and if it has the correct file type
             if os.path.isfile(file) and (file_type is None or file.endswith(file_type)):
                 # Copy the file to the output directory
@@ -91,8 +82,10 @@ def main():
 
     # Get the successfully processed and not successfully processed projects
     processed, not_processed = get_processed_projects(input_dir=INPUT_DIR)
-    logging.info("Successfully processed: %d", len(processed))
-    logging.info("Not successfully processed: %d", len(not_processed))
+    logging.info("Successfully processed: %d \n %s", len(processed), processed)
+    logging.info(
+        "Not successfully processed: %d \n %s", len(not_processed), not_processed
+    )
 
     # Copy the successfully processed projects to the output directory
     copy_files(input_paths=processed, output_dir=OUTPUT_DIR, file_type=".java")
