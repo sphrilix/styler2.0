@@ -267,12 +267,10 @@ def find_version_by_trying(config: Path, project_dir: Path) -> str:
     raise NotSuppoertedVersionException("No suitable checkstyle version found.")
 
 
-def remove_relative_paths(config_path: Path, save_path: Path) -> None:
+def fix_checkstyle_config(config_path: Path, save_path: Path) -> None:
     """
-    Removes all relative paths from the given checkstyle config file and saves
-    it to the given save path. Thereby all elements with a relative path
-    (and their children/parents) are removed from the tree root.
-
+    Fixes the given checkstyle config file by removing all relative paths
+    and by removing LineLength under TreeWalker.
     :param config_path: The path to the checkstyle config file.
     :param save_path: The path to save the modified checkstyle config file.
     """
@@ -286,15 +284,9 @@ def remove_relative_paths(config_path: Path, save_path: Path) -> None:
     # Add parent info to all elements
     _add_parent_info(root)
 
-    # Remove all relative paths (starting with "/" followed by a letter)
-    for property_element in root.findall(".//property"):
-        if property_element is not None and re.match(
-            r"/[A-Za-z]", property_element.get("value")
-        ):
-            # Remove the element and all children/parents from the tree root
-            while property_element not in list(root):
-                property_element = _get_parent(property_element)
-            root.remove(property_element)
+    # Fix the checkstyle config
+    remove_relative_paths(root)
+    remove_line_length(root)
 
     # Remove parent info
     _strip_parent_info(root)
@@ -309,6 +301,47 @@ def remove_relative_paths(config_path: Path, save_path: Path) -> None:
     # Append the root and all children to the new file
     with open(copied_file, "a") as new_config:
         new_config.write(Xml.tostring(root, encoding="unicode"))
+
+
+def remove_relative_paths(root: Xml.Element) -> None:
+    """
+    Removes all relative paths (starting with "/" followed by a letter) from the
+    given XML tree.
+    :param root:  The root of the XML tree.
+    :return:    Returns the root of the XML tree without relative paths.
+    """
+    for property_element in root.findall(".//property"):
+        if property_element is not None and re.match(
+            r"/[A-Za-z]", property_element.get("value")
+        ):
+            _remove_property(root, property_element)
+
+
+def remove_line_length(root: Xml.Element) -> None:
+    """
+    Removes LineLength under TreeWalker from the given XML tree.
+    :param root:  The root of the XML tree.
+    :return:  Returns the root of the XML tree without LineLength under TreeWalker.
+    """
+    for module_element in root.findall(".//module"):
+        if (
+            module_element is not None
+            and module_element.get("name") == "LineLength"
+            and _get_parent(module_element).get("name") == "TreeWalker"
+        ):
+            _remove_property(root, module_element)
+
+
+def _remove_property(root: Xml.Element, module_element: Xml.Element) -> None:
+    """
+    Removes the property with the given name from the given XML tree.
+    :param root: The root of the XML tree.
+    :param module_element: The module element to remove.
+    :return:  Returns the root of the XML tree without the property.
+    """
+    while module_element not in list(root):
+        module_element = _get_parent(module_element)
+    root.remove(module_element)
 
 
 def _add_parent_info(et):

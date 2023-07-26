@@ -3,15 +3,16 @@ import re
 import xml.etree.ElementTree as Xml
 from pathlib import Path
 
+# https://maven.apache.org/plugins/maven-checkstyle-plugin/history.html
 MAVEN_PLUGIN_CHECKSTYLE_VERSION = {
-    "3.3.0": "9.3.0",
-    "3.2.2": "9.3.0",
-    "3.2.1": "9.3.0",
-    "3.2.0": "9.3.0",
-    "3.1.2": "8.29.0",
-    "3.1.1": "8.29.0",
-    "3.1.0": "8.19.0",
-    "3.0.0": "8.18.0",
+    "3.3.0": "9.3",
+    "3.2.2": "9.3",
+    "3.2.1": "9.3",
+    "3.2.0": "9.3",
+    "3.1.2": "8.29",
+    "3.1.1": "8.29",
+    "3.1.0": "8.19",
+    "3.0.0": "8.18",
 }
 POM_XML = "pom.xml"
 STANDARD_NAMESPACE = "http://maven.apache.org/POM/4.0.0"

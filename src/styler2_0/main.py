@@ -17,7 +17,7 @@ from src.styler2_0.preprocessing.violation_generation import (
 from src.styler2_0.utils.checkstyle import (
     find_checkstyle_config,
     find_version_by_trying,
-    remove_relative_paths,
+    fix_checkstyle_config,
     run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
@@ -75,9 +75,9 @@ def _run_checkstyle_report(parsed_args: Namespace):
     if not config:
         config = find_checkstyle_config(source)
 
-    remove_relative_paths(config, save / Path("checkstyle-modified.xml"))
+    fix_checkstyle_config(config, save / Path("checkstyle-fixed.xml"))
 
-    config = save / Path("checkstyle-modified.xml")
+    config = save / Path("checkstyle-fixed.xml")
 
     version = parsed_args.version
     if not version:
