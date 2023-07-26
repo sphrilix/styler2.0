@@ -37,6 +37,7 @@ CHECKSTYLE_CONF_REG_2 = re.compile(
 )
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
+CHECKSTYLE_TIMEOUT = 5 * 60  # 5 minutes
 
 
 class NotSuppoertedVersionException(Exception):
@@ -162,13 +163,17 @@ def _find_checkstyle_config(directory: Path, regex: re.Pattern) -> list[str]:
 
 
 def run_checkstyle_on_dir(
-    directory: Path, version: str, config: Path = None
+    directory: Path,
+    version: str,
+    config: Path = None,
+    timeout: int = CHECKSTYLE_TIMEOUT,
 ) -> frozenset[CheckstyleReport]:
     """
     Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
     :param config: The given config file.
     :param directory: The directory of the Java project.
     :param version: The version of checkstyle to use.
+    :param timeout: The timeout for the checkstyle process.
     :return: Returns a set of ChecksStyleFileReport.
     """
     # Build the command to run checkstyle
@@ -181,17 +186,41 @@ def run_checkstyle_on_dir(
     # Run checkstyle and parse the output
     logging.info("Running checkstyle with command: %s", checkstyle_cmd)
     with subprocess.Popen(
-        checkstyle_cmd.split(), stdout=subprocess.PIPE
+        checkstyle_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     ) as checkstyle_process:
-        output = checkstyle_process.communicate()[0]
-        if checkstyle_process.returncode > 0:
-            output = b"".join(output.split(b"</checkstyle>")[0:-1]) + b"</checkstyle>"
-            logging.warning(
-                "Checkstyle exited with code %d.", checkstyle_process.returncode
-            )
-        else:
-            logging.info("Checkstyle exited with code 0.")
-        return _parse_checkstyle_xml_report(output)
+        try:
+            report, stderr = checkstyle_process.communicate(timeout=timeout)
+
+            # Log errors of the subprocess
+            if stderr:
+                logging.error(f"Checkstyle error:\n{stderr}")
+
+            if checkstyle_process.returncode == 4294967294:
+                logging.error(
+                    "Checkstyle failed to run. Please check if the provided "
+                    "project is a maven java project using checkstyle."
+                )
+            else:
+                logging.info(
+                    "Checkstyle completed with %s violations",
+                    checkstyle_process.returncode,
+                )
+
+                if checkstyle_process.returncode > 0:
+                    report = (
+                        b"".join(report.split(b"</checkstyle>")[0:-1])
+                        + b"</checkstyle>"
+                    )
+
+        # If the subprocess exceeds the timeout, terminate it
+        except subprocess.TimeoutExpired:
+            checkstyle_process.terminate()
+            logging.error("Checkstyle timed out after %s seconds", timeout)
+            raise TimeoutError(
+                "Checkstyle timed out after %s seconds" % timeout
+            ) from None
+
+        return _parse_checkstyle_xml_report(report)
 
 
 def run_checkstyle_on_str(code: str, version: str, config: Path) -> CheckstyleReport:

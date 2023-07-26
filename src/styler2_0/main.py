@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from argparse import ArgumentParser, Namespace
@@ -15,6 +16,7 @@ from src.styler2_0.preprocessing.violation_generation import (
     generate_n_violations,
 )
 from src.styler2_0.utils.checkstyle import (
+    CHECKSTYLE_TIMEOUT,
     find_checkstyle_config,
     fix_checkstyle_config,
     run_checkstyle_on_dir,
@@ -45,10 +47,51 @@ class Tasks(Enum):
         return self.value
 
 
+def setup_logging(log_file: str = "styler.log", overwrite: bool = False) -> None:
+    """
+    Set up logging.
+    """
+    # Get the overwrite flag
+    mode = "w" if overwrite else "a"
+
+    # Set the logging level
+    logging_level = logging.INFO
+    logging.basicConfig(level=logging_level)
+
+    # Create a file handler to write messages to a log file
+    file_handler = logging.FileHandler(log_file, mode=mode)
+    file_handler.setLevel(logging_level)
+
+    # Create a console handler to display messages to the console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging_level)
+
+    # Define the log format
+    formatter = logging.Formatter(
+        "%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Get the root logger and add the handlers
+    logger = logging.getLogger("")
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+
 def main(args: list[str]) -> int:
     arg_parser = _set_up_arg_parser()
     parsed_args = arg_parser.parse_args(args)
     task = Tasks(parsed_args.command)
+
+    # Set up logging and specify logfile name
+    logfile = "styler.log"
+    if parsed_args.save:
+        folder_path = Path(parsed_args.save)
+        folder_name = Path(parsed_args.save).name
+        logfile = folder_path / Path(f"styler-{folder_name}.log")
+    setup_logging(logfile, overwrite=True)
+
     match task:
         case Tasks.GENERATE_VIOLATIONS:
             _run_violation_generation(parsed_args)
@@ -68,6 +111,7 @@ def _run_checkstyle_report(parsed_args: Namespace):
     source = parsed_args.source
     config = parsed_args.config
     tested = parsed_args.tested
+    timeout = parsed_args.timeout
 
     os.makedirs(save, exist_ok=True)
 
@@ -78,14 +122,16 @@ def _run_checkstyle_report(parsed_args: Namespace):
         except AttributeError as e:
             # version = find_version_by_trying(config, source)
             raise Exception("No version found!") from e
+    logging.info(f"Checkstyle version: {version}")
 
     if not config:
         config = find_checkstyle_config(source)
+        fix_checkstyle_config(config, save / Path("checkstyle-fixed.xml"), version)
+        config = save / Path("checkstyle-fixed.xml")
+    logging.info(f"Checkstyle config: {config}")
 
-    fix_checkstyle_config(config, save / Path("checkstyle-fixed.xml"), version)
-    config = save / Path("checkstyle-fixed.xml")
-
-    checkstyle_report = run_checkstyle_on_dir(source, version, config)
+    checkstyle_report = run_checkstyle_on_dir(source, version, config, timeout)
+    logging.info("Checkstyle report created.")
 
     non_violated_files = (
         stream(list(checkstyle_report))
@@ -93,10 +139,12 @@ def _run_checkstyle_report(parsed_args: Namespace):
         .map(lambda report: report.path)
         .to_set()
     )
+    logging.info(f"Non violated files extracted. Amount: {len(non_violated_files)}")
 
     # remove all not tested files and all test files
     if tested:
         non_violated_files = extract_tested_src_files(non_violated_files)
+        logging.info(f"Tested files extracted. Amount: {len(non_violated_files)}")
 
     non_violated_dir = save / Path("non_violated/")
     os.makedirs(non_violated_dir, exist_ok=True)
@@ -104,6 +152,11 @@ def _run_checkstyle_report(parsed_args: Namespace):
     for file in non_violated_files:
         with suppress(SameFileError):
             copyfile(file, non_violated_dir / file.name)
+
+    if tested:
+        logging.info(f"Non violated and tested files stored in {non_violated_dir}")
+    else:
+        logging.info(f"Non violated files stored in {non_violated_dir}")
 
     return non_violated_dir, version
 
@@ -166,6 +219,9 @@ def _add_checkstyle_arguments(checkstyle_sub_parser):
     )
     checkstyle_sub_parser.add_argument("--version", required=False)
     checkstyle_sub_parser.add_argument("--tested", action="store_true")
+    checkstyle_sub_parser.add_argument(
+        "--timeout", required=False, type=int, default=CHECKSTYLE_TIMEOUT
+    )
 
 
 if __name__ == "__main__":
