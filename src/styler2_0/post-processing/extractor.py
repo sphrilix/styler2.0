@@ -69,6 +69,7 @@ def delete_empty_dirs(input_dir: str) -> None:
     for directory in os.listdir(input_dir):
         directory = os.path.join(input_dir, directory)
         if os.path.isdir(directory) and not os.listdir(directory):
+            logging.info("Removing empty directory: %s", directory)
             os.rmdir(directory)
 
 
@@ -92,6 +93,9 @@ def main():
     logging.info(
         "Copied %d successfully processed dirs to %s.", len(processed), OUTPUT_DIR
     )
+
+    # Remove empty directories
+    delete_empty_dirs(OUTPUT_DIR)
 
 
 if __name__ == "__main__":
