@@ -55,6 +55,6 @@ for directory in os.listdir(input_dir):
                 output_subdir,
                 "--source",
                 directory,
-                "--tested",
+                # "--tested",
             ]
         )
