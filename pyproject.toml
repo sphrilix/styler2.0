@@ -18,6 +18,7 @@ tqdm = "^4.65.0"
 torch = "^2.0.1"
 bidict = "^0.22.1"
 requests = "^2.31.0"
+javalang = "^0.13.0"
 
 
 [tool.poetry.group.dev.dependencies]
