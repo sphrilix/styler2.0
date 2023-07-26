@@ -28,6 +28,11 @@ class MavenException(Exception):
 
 
 def _find_pom_xml(project_dir: Path) -> Path:
+    """
+    Find pom.xml in project directory.
+    :param project_dir: Project directory.
+    :return: Path to pom.xml.
+    """
     for subdir, _, files in os.walk(project_dir):
         if POM_XML in files:
             return Path(os.path.join(subdir, POM_XML))
@@ -35,13 +40,18 @@ def _find_pom_xml(project_dir: Path) -> Path:
 
 
 def _get_checkstyle_version_from_pom(pom: Path) -> str:
+    """
+    Get checkstyle version from pom.xml.
+    :param pom: Path to pom.xml.
+    :return: Checkstyle version.
+    """
     if not str(pom).endswith(POM_XML):
         raise ValueError(f"No {POM_XML} was given")
     parsed_pom = Xml.parse(pom)
     root = parsed_pom.getroot()
     namespaces = _get_namespaces(root)
 
-    # Find all plugin candidates
+    # Find all plugin candidates (artifactId = maven-checkstyle-plugin)
     plugin_candidates = []
     for plugin in root.findall(".//xmlns:plugin", namespaces=namespaces):
         artifact_id = plugin.find("xmlns:artifactId", namespaces=namespaces)
@@ -53,9 +63,12 @@ def _get_checkstyle_version_from_pom(pom: Path) -> str:
             plugin_candidates.append(plugin)
 
     if len(plugin_candidates) == 0:
-        raise MavenException("Project does not support checkstyle.")
+        raise MavenException(
+            "Project does not support checkstyle as there is no"
+            " maven-checkstyle-plugin in the pom.xml."
+        )
 
-    # Try all found plugins before raising an exception
+    # Try for all found plugin candidates to find checkstyle version
     for plugin in plugin_candidates:
         version = _parse_checkstyle_version_from_xml_elem(plugin, root, namespaces)
         if version:
@@ -72,24 +85,78 @@ def _get_namespaces(root: Xml.Element) -> dict[str, str]:
 def _parse_checkstyle_version_from_xml_elem(
     elem: Xml.Element, root, namespaces: dict[str, str]
 ) -> None | str:
-    # Find checkstyle version in artifact "checkstyle"
+    """
+    Parse checkstyle version from xml element.
+    :param elem: The xml element to parse.
+    :param root: Root of pom.
+    :param namespaces: Namespaces of pom.
+    :return: Return the checkstyle version. If not found, return None.
+    """
+    version = _parse_checkstyle_version_from_artifact(elem, root, namespaces)
+    if version:
+        return version
+
+    version = _parse_checkstyle_version_from_maven_plugin(elem, root, namespaces)
+    if version:
+        return version
+
+    # No checkstyle version found in this xml element
+    return None
+
+
+def _parse_checkstyle_version_from_artifact(
+    elem: Xml.Element, root: Xml.Element, namespaces: dict[str, str]
+) -> None | str:
+    """
+    Parse the checkstyle version from artifact "checkstyle" within the
+    maven-checkstyle-plugin.
+    :param elem: The xml element to parse.
+    :param root : Root of pom.
+    :param namespaces: Namespaces of pom.
+    :return: Return the checkstyle version. If not found, return None.
+    """
     checkstyle_dependencies = elem.findall(".//xmlns:dependency", namespaces=namespaces)
     for dependency in checkstyle_dependencies:
-        name = dependency.find("xmlns:artifactId", namespaces=namespaces).text
+        # Get artifactId of dependency
+        name = dependency.find("xmlns:artifactId", namespaces=namespaces)
+        if name is None:
+            continue
+        name = name.text
+
         if name == CHECKSTYLE_ARTIFACT_ID:
-            version = dependency.find("xmlns:version", namespaces=namespaces).text
+            # Find version
+            version = dependency.find("xmlns:version", namespaces=namespaces)
+            if version is None:
+                continue
+            version = version.text
+
             if version:
+                # Check if version is a variable
                 if DEPENDENCY_REGEX.match(version):
                     version = _parse_checkstyle_version_from_variable(
                         version, root, namespaces
                     )
                 return version
 
-    # Get checkstyle version from maven-checkstyle-plugin version
+    # No checkstyle version found
+    return None
+
+
+def _parse_checkstyle_version_from_maven_plugin(
+    elem: Xml.Element, root: Xml.Element, namespaces: dict[str, str]
+) -> None | str:
+    """
+    Parse the checkstyle version from maven-checkstyle-plugin version.
+    :param elem: The xml element to parse.
+    :param root: Root of pom.
+    :param namespaces: Namespaces of pom.
+    :return: Return the checkstyle version. If not found, return None.
+    """
     plugin_version = elem.find("xmlns:version", namespaces=namespaces)
     if plugin_version is not None:
         plugin_version = plugin_version.text
-        if plugin_version:
+        if plugin_version is not None:
+            # Check if version is a variable
             if DEPENDENCY_REGEX.match(plugin_version):
                 plugin_version = _parse_checkstyle_version_from_variable(
                     plugin_version, root, namespaces

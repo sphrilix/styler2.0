@@ -1,3 +1,4 @@
+import logging
 import os.path
 import re
 import subprocess
@@ -115,25 +116,43 @@ class CheckstyleReport:
 
 
 def find_checkstyle_config(directory: Path) -> Path:
+    """
+    Find the checkstyle config in the given directory.
+    :param directory: The directory to search in.
+    :return: The path to the checkstyle config.
+    """
+    # CHECKSTYLE_CONF_REG_1 is more specific than CHECKSTYLE_CONF_REG_2
     matches_1 = _find_checkstyle_config(directory, CHECKSTYLE_CONF_REG_1)
-    matches_2 = _find_checkstyle_config(directory, CHECKSTYLE_CONF_REG_2)
-
     if len(matches_1) == 1:
         return Path(matches_1[0])
 
+    # If no or multiple matches are found, try the other regex and print all results
+    matches_2 = _find_checkstyle_config(directory, CHECKSTYLE_CONF_REG_2)
+
+    # If no matches are found there is no checkstyle config
     if len(matches_2) == 0:
         raise ValueError("Given directory does not contain a checkstyle config!")
 
+    # Log all possible configurations using logging
+    shortest_match = min(matches_2, key=len)
     if len(matches_2) > 1:
-        print("Multiple checkstyle configs found:")
-        for match in matches_2:
-            print(match)
-        print("Using the one with the shorter name.")
+        logging.warning(
+            "Found multiple possible checkstyle configs: %s. \n"
+            "Using the shortest one: %s",
+            ", ".join(matches_2),
+            shortest_match,
+        )
 
-    return Path(min(matches_2, key=len))
+    return Path(shortest_match)
 
 
 def _find_checkstyle_config(directory: Path, regex: re.Pattern) -> list[str]:
+    """
+    Find the checkstyle config in the given directory using the given regex.
+    :param directory: The directory to search in.
+    :param regex: The regex to use.
+    :return: The path to the checkstyle config.
+    """
     matches = []
     for subdir, _, files in os.walk(directory):
         for file in files:
@@ -152,21 +171,26 @@ def run_checkstyle_on_dir(
     :param version: The version of checkstyle to use.
     :return: Returns a set of ChecksStyleFileReport.
     """
+    # Build the command to run checkstyle
     path_to_jar = _build_path_to_checkstyle_jar(version)
     path_to_checkstyle_config = config if config else find_checkstyle_config(directory)
     checkstyle_cmd = CHECKSTYLE_RUN_CMD.format(
         path_to_jar, path_to_checkstyle_config, directory
     )
 
-    print("Staring Checkstyle:")
-    print(checkstyle_cmd)
-
+    # Run checkstyle and parse the output
+    logging.info("Running checkstyle with command: %s", checkstyle_cmd)
     with subprocess.Popen(
         checkstyle_cmd.split(), stdout=subprocess.PIPE
     ) as checkstyle_process:
         output = checkstyle_process.communicate()[0]
         if checkstyle_process.returncode > 0:
             output = b"".join(output.split(b"</checkstyle>")[0:-1]) + b"</checkstyle>"
+            logging.warning(
+                "Checkstyle exited with code %d.", checkstyle_process.returncode
+            )
+        else:
+            logging.info("Checkstyle exited with code 0.")
         return _parse_checkstyle_xml_report(output)
 
 
