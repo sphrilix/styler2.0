@@ -16,7 +16,6 @@ from src.styler2_0.preprocessing.violation_generation import (
 )
 from src.styler2_0.utils.checkstyle import (
     find_checkstyle_config,
-    find_version_by_trying,
     fix_checkstyle_config,
     run_checkstyle_on_dir,
 )
@@ -72,19 +71,19 @@ def _run_checkstyle_report(parsed_args: Namespace):
 
     os.makedirs(save, exist_ok=True)
 
-    if not config:
-        config = find_checkstyle_config(source)
-
-    fix_checkstyle_config(config, save / Path("checkstyle-fixed.xml"))
-
-    config = save / Path("checkstyle-fixed.xml")
-
     version = parsed_args.version
     if not version:
         try:
             version = get_checkstyle_version_of_project(source)
-        except AttributeError:
-            version = find_version_by_trying(config, source)
+        except AttributeError as e:
+            # version = find_version_by_trying(config, source)
+            raise Exception("No version found!") from e
+
+    if not config:
+        config = find_checkstyle_config(source)
+
+    fix_checkstyle_config(config, save / Path("checkstyle-fixed.xml"), version)
+    config = save / Path("checkstyle-fixed.xml")
 
     checkstyle_report = run_checkstyle_on_dir(source, version, config)
 

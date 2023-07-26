@@ -1,0 +1,55 @@
+activity:
+Checkstyle version: 9.3
+Required removes:
+    _remove_from_modules(root, "TreeWalker", "LineLength")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingJavadoc")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "scope")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingThrowsTags")
+    _remove_from_modules(
+      root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
+    )
+
+alluxio:
+new regex
+Timeout
+
+android-open-project-demo:
+No pom.xml
+
+api:
+No checkstyle in pom.xml
+
+areaShop:
+old regex
+Checkstyle version: 8.29
+Required removes:
+  _remove_from_modules(
+      root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
+  )
+  _remove_from_modules(
+      root, "TreeWalker", "JavadocMethod", "minLineCount"
+  )
+
+asqatasun
+Version not found (8.18)
+checkstyle.xml not found (on server?)
+
+athenz:
+new regex
+
+aws-saas-boost:
+works
+
+checkstyle:
+No checkstyle in pom.xml
+
+coherence-spring:
+Weired checkstyle file
+
+onventional-commits-plugin:
+No checkstyle file
+
+cron-utils:
+works
+
+cucumber-jvm:

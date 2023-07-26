@@ -40,12 +40,24 @@ def _get_checkstyle_version_from_pom(pom: Path) -> str:
     parsed_pom = Xml.parse(pom)
     root = parsed_pom.getroot()
     namespaces = _get_namespaces(root)
+
+    # Find all plugin candidates
+    plugin_candidates = []
     for plugin in root.findall(".//xmlns:plugin", namespaces=namespaces):
         name = plugin.find("xmlns:artifactId", namespaces=namespaces).text
-        if name != CHECKSTYLE_PLUGIN_ARTIFACT_ID:
-            continue
-        return _parse_checkstyle_version_from_xml_elem(plugin, root, namespaces)
-    raise MavenException("Project does not support checkstyle.")
+        if name == CHECKSTYLE_PLUGIN_ARTIFACT_ID:
+            plugin_candidates.append(plugin)
+
+    if len(plugin_candidates) == 0:
+        raise MavenException("Project does not support checkstyle.")
+
+    # Try all found plugins before raising an exception
+    for plugin in plugin_candidates:
+        version = _parse_checkstyle_version_from_xml_elem(plugin, root, namespaces)
+        if version:
+            return version
+
+    raise MavenException("Not supported checkstyle version.")
 
 
 def _get_namespaces(root: Xml.Element) -> dict[str, str]:
@@ -55,24 +67,34 @@ def _get_namespaces(root: Xml.Element) -> dict[str, str]:
 
 def _parse_checkstyle_version_from_xml_elem(
     elem: Xml.Element, root, namespaces: dict[str, str]
-) -> str:
+) -> None | str:
+    # Find checkstyle version in artifact "checkstyle"
     checkstyle_dependencies = elem.findall(".//xmlns:dependency", namespaces=namespaces)
     for dependency in checkstyle_dependencies:
         name = dependency.find("xmlns:artifactId", namespaces=namespaces).text
         if name == CHECKSTYLE_ARTIFACT_ID:
             version = dependency.find("xmlns:version", namespaces=namespaces).text
             if version:
+                if DEPENDENCY_REGEX.match(version):
+                    version = _parse_checkstyle_version_from_variable(
+                        version, root, namespaces
+                    )
                 return version
-    plugin_version = elem.find("xmlns:version", namespaces=namespaces).text
-    if plugin_version:
-        if DEPENDENCY_REGEX.match(plugin_version):
-            plugin_version = _parse_checkstyle_version_from_variable(
-                plugin_version, root, namespaces
-            )
-        if plugin_version in MAVEN_PLUGIN_CHECKSTYLE_VERSION:
-            return MAVEN_PLUGIN_CHECKSTYLE_VERSION[plugin_version]
 
-    raise MavenException("Not supported checkstyle version.")
+    # Get checkstyle version from maven-checkstyle-plugin version
+    plugin_version = elem.find("xmlns:version", namespaces=namespaces)
+    if plugin_version is not None:
+        plugin_version = plugin_version.text
+        if plugin_version:
+            if DEPENDENCY_REGEX.match(plugin_version):
+                plugin_version = _parse_checkstyle_version_from_variable(
+                    plugin_version, root, namespaces
+                )
+            if plugin_version in MAVEN_PLUGIN_CHECKSTYLE_VERSION:
+                return MAVEN_PLUGIN_CHECKSTYLE_VERSION[plugin_version]
+
+    # No checkstyle version found
+    return None
 
 
 def get_checkstyle_version_of_project(project_dir: Path) -> str:

@@ -25,9 +25,13 @@ CHECKSTYLE_RUN_CMD = (
     "--exclude-regexp .*/resources/.*"
 )
 CHECKSTYLE_JAR_NAME = "checkstyle-{}-all.jar"
-CHECKSTYLE_CONF_REG = re.compile(
+CHECKSTYLE_CONF_REG_1 = re.compile(
     r".?((checkstyle)|(check-style)|(sun)|(google))[-_]?"
     r"((config)|(configuration)|(checks)|(checker)|(rules))?.xml"
+)
+CHECKSTYLE_CONF_REG_2 = re.compile(
+    r".*((checkstyle)|(check)|(style)|(sun)|(google)"
+    r"|(configuration)|(checks)|(checker)|(rules)).*\.xml"
 )
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
@@ -110,11 +114,31 @@ class CheckstyleReport:
 
 
 def find_checkstyle_config(directory: Path) -> Path:
+    matches_1 = _find_checkstyle_config(directory, CHECKSTYLE_CONF_REG_1)
+    matches_2 = _find_checkstyle_config(directory, CHECKSTYLE_CONF_REG_2)
+
+    if len(matches_1) == 1:
+        return Path(matches_1[0])
+
+    if len(matches_2) == 0:
+        raise ValueError("Given directory does not contain a checkstyle config!")
+
+    if len(matches_2) > 1:
+        print("Multiple checkstyle configs found:")
+        for match in matches_2:
+            print(match)
+        print("Using the one with the shorter name.")
+
+    return Path(min(matches_2, key=len))
+
+
+def _find_checkstyle_config(directory: Path, regex: re.Pattern) -> list[str]:
+    matches = []
     for subdir, _, files in os.walk(directory):
         for file in files:
-            if CHECKSTYLE_CONF_REG.match(file):
-                return Path(subdir) / Path(file)
-    raise ValueError("Given directory does not contain a checkstyle config!")
+            if regex.match(file):
+                matches.append(os.path.join(subdir, file))
+    return matches
 
 
 def run_checkstyle_on_dir(
@@ -132,6 +156,10 @@ def run_checkstyle_on_dir(
     checkstyle_cmd = CHECKSTYLE_RUN_CMD.format(
         path_to_jar, path_to_checkstyle_config, directory
     )
+
+    print("Staring Checkstyle:")
+    print(checkstyle_cmd)
+
     with subprocess.Popen(
         checkstyle_cmd.split(), stdout=subprocess.PIPE
     ) as checkstyle_process:
@@ -267,12 +295,15 @@ def find_version_by_trying(config: Path, project_dir: Path) -> str:
     raise NotSuppoertedVersionException("No suitable checkstyle version found.")
 
 
-def fix_checkstyle_config(config_path: Path, save_path: Path) -> None:
+def fix_checkstyle_config(
+    config_path: Path, save_path: Path, version: str = "9.3"
+) -> None:
     """
     Fixes the given checkstyle config file by removing all relative paths
     and by removing LineLength under TreeWalker.
     :param config_path: The path to the checkstyle config file.
     :param save_path: The path to save the modified checkstyle config file.
+    :param version: The checkstyle version.
     """
     # Create a new XML file with the same name as the original in the save path
     copied_file = copyfile(config_path, save_path)
@@ -286,13 +317,24 @@ def fix_checkstyle_config(config_path: Path, save_path: Path) -> None:
 
     # Fix the checkstyle config
     _remove_relative_paths(root)
-    _remove_from_modules(root, "TreeWalker", "LineLength")
-    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingJavadoc")
-    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "scope")
-    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingThrowsTags")
-    _remove_from_modules(
-        root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
-    )
+
+    if version == "9.3":
+        _remove_from_modules(root, "TreeWalker", "LineLength")
+        _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingJavadoc")
+        _remove_from_modules(root, "TreeWalker", "JavadocMethod", "scope")
+        _remove_from_modules(
+            root, "TreeWalker", "JavadocMethod", "allowMissingThrowsTags"
+        )
+        _remove_from_modules(
+            root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
+        )
+        _remove_from_modules(root, "TreeWalker", "JavadocMethod", "minLineCount")
+
+    if version == "8.29":
+        _remove_from_modules(
+            root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
+        )
+        _remove_from_modules(root, "TreeWalker", "JavadocMethod", "minLineCount")
 
     # Remove parent info
     _strip_parent_info(root)
