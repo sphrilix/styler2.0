@@ -10,6 +10,7 @@ from shutil import copyfile
 
 from streamerate import stream
 
+from src.styler2_0.utils.maven import DEPENDENCY_REGEX
 from src.styler2_0.utils.utils import save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -317,6 +318,7 @@ def fix_checkstyle_config(
 
     # Fix the checkstyle config
     _remove_relative_paths(root)
+    _remove_variable_paths(root)
 
     if version == "9.3":
         _remove_from_modules(root, "TreeWalker", "LineLength")
@@ -366,6 +368,21 @@ def _remove_relative_paths(root: Xml.Element) -> None:
             while property_element not in list(root):
                 property_element = _get_parent(property_element)
             root.remove(property_element)
+
+
+def _remove_variable_paths(root: Xml.Element) -> None:
+    """
+    Removes all paths that match the dependency regex.
+    :param root: The root of the XML tree.
+    :return: Returns the root of the XML tree without variable paths.
+    """
+    for property_element in root.findall(".//property"):
+        if (
+            property_element is not None
+            and property_element.get("value") is not None
+            and DEPENDENCY_REGEX.match(property_element.get("value"))
+        ):
+            _remove_element(property_element)
 
 
 def _find_modules(root: Xml.Element, parent: str, module: str) -> list[Xml.Element]:

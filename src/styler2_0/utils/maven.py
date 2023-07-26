@@ -44,7 +44,11 @@ def _get_checkstyle_version_from_pom(pom: Path) -> str:
     # Find all plugin candidates
     plugin_candidates = []
     for plugin in root.findall(".//xmlns:plugin", namespaces=namespaces):
-        name = plugin.find("xmlns:artifactId", namespaces=namespaces).text
+        artifact_id = plugin.find("xmlns:artifactId", namespaces=namespaces)
+        if artifact_id is None:
+            continue
+
+        name = artifact_id.text
         if name == CHECKSTYLE_PLUGIN_ARTIFACT_ID:
             plugin_candidates.append(plugin)
 

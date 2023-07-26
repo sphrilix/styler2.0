@@ -53,3 +53,49 @@ cron-utils:
 works
 
 cucumber-jvm:
+Exception in cucumber-jvm\cucumber-archetype\src\main\resources\archetype-resources\src\test\java\RunCucumberTest.java
+
+DDF:
+Requires: 2.6	-> 5.0
+
+debezium:
+Checkstyle error
+
+DiskLruCache:
+Requires: 2.10
+
+dremio-oss:
+Checkstyle error
+
+druid:
+worked
+
+enterprise-spring-best-practices:
+Requires: 2.9.1-> 5.5
+
+flink-cdc-connectors:
+works
+
+framework:
+works, but no output files
+
+generator:
+Not supported checkstyle version
+
+geotoolkit:
+No valid checkstyle file.
+
+geotools:
+Checkstyle exception geotools\docs\user\tutorial\quickstart\artifacts\module-info.java
+
+gephi:
+works
+
+google-http-java-client:
+works
+
+graphhopper:
+works
+
+hadoop:
+works. Contains multiple subprojects. For better results add logic to distinguish those
