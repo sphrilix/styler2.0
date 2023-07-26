@@ -285,8 +285,14 @@ def fix_checkstyle_config(config_path: Path, save_path: Path) -> None:
     _add_parent_info(root)
 
     # Fix the checkstyle config
-    remove_relative_paths(root)
-    remove_line_length(root)
+    _remove_relative_paths(root)
+    _remove_from_modules(root, "TreeWalker", "LineLength")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingJavadoc")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "scope")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingThrowsTags")
+    _remove_from_modules(
+        root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses"
+    )
 
     # Remove parent info
     _strip_parent_info(root)
@@ -303,7 +309,7 @@ def fix_checkstyle_config(config_path: Path, save_path: Path) -> None:
         new_config.write(Xml.tostring(root, encoding="unicode"))
 
 
-def remove_relative_paths(root: Xml.Element) -> None:
+def _remove_relative_paths(root: Xml.Element) -> None:
     """
     Removes all relative paths (starting with "/" followed by a letter) from the
     given XML tree.
@@ -314,10 +320,13 @@ def remove_relative_paths(root: Xml.Element) -> None:
         if property_element is not None and re.match(
             r"/[A-Za-z]", property_element.get("value")
         ):
-            _remove_property(root, property_element)
+            # Remove the element and all children/parents from the tree root
+            while property_element not in list(root):
+                property_element = _get_parent(property_element)
+            root.remove(property_element)
 
 
-def remove_line_length(root: Xml.Element) -> None:
+def _remove_line_length(root: Xml.Element) -> None:
     """
     Removes LineLength under TreeWalker from the given XML tree.
     :param root:  The root of the XML tree.
@@ -329,19 +338,97 @@ def remove_line_length(root: Xml.Element) -> None:
             and module_element.get("name") == "LineLength"
             and _get_parent(module_element).get("name") == "TreeWalker"
         ):
-            _remove_property(root, module_element)
+            _remove_element(module_element)
 
 
-def _remove_property(root: Xml.Element, module_element: Xml.Element) -> None:
+def _remove_allow_missing_javadoc(root: Xml.Element) -> None:
+    """
+    Removes the allowMissingJavadoc property from JavadocMethod module in TreeWalker.
+    :param root:  The root of the XML tree.
+    :return:  Returns the root of the XML tree without the allowMissingJavadoc property.
+    """
+    for module_element in root.findall(".//module"):
+        if (
+            module_element is not None
+            and module_element.get("name") == "JavadocMethod"
+            and _get_parent(module_element).get("name") == "TreeWalker"
+        ):
+            # Remove the allowMissingJavadoc property
+            for property_element in module_element.findall(".//property"):
+                if (
+                    property_element is not None
+                    and property_element.get("name") == "allowMissingJavadoc"
+                ):
+                    _remove_element(property_element)
+
+
+def _find_modules(root: Xml.Element, parent: str, module: str) -> list[Xml.Element]:
+    """
+    Finds all modules with the given parent and module name.
+    :param root: The root of the XML tree.
+    :param parent: The parent of the module.
+    :param module: The name of the module.
+    :return: A list of all modules with the given parent and module name.
+    """
+    modules = []
+    for module_element in root.findall(".//module"):
+        if (
+            module_element is not None
+            and module_element.get("name") == module
+            and _get_parent(module_element).get("name") == parent
+        ):
+            modules.append(module_element)
+    return modules
+
+
+def _find_property(root: Xml.Element, module: str, prop: str) -> list[Xml.Element]:
+    """
+    Finds all properties with the given module and property name.
+    :param root: The root of the XML tree.
+    :param module: The module of the property.
+    :param prop: The name of the property.
+    :return: A list of all properties with the given module and property name.
+    """
+    properties = []
+    for property_element in root.findall(".//property"):
+        if (
+            property_element is not None
+            and property_element.get("name") == prop
+            and _get_parent(property_element).get("name") == module
+        ):
+            properties.append(property_element)
+    return properties
+
+
+def _remove_from_modules(root: Xml.Element, *args) -> None:
+    """
+    Removes the property or module from the given XML tree.
+    :param root: The root of the XML tree.
+    :param args: The path to the property or module.
+    :return: Returns the root of the XML tree without the property or module.
+    """
+    if len(args) == 2:  # Remove a module
+        for module_element in _find_modules(root, args[0], args[1]):
+            _remove_element(module_element)
+
+    elif len(args) == 3:  # Remove a property
+        for module_element in _find_modules(root, args[0], args[1]):
+            for property_element in _find_property(module_element, args[1], args[2]):
+                _remove_element(property_element)
+
+    else:
+        raise ValueError("Invalid number of arguments.")
+
+
+def _remove_element(module_element: Xml.Element) -> None:
     """
     Removes the property with the given name from the given XML tree.
     :param root: The root of the XML tree.
     :param module_element: The module element to remove.
     :return:  Returns the root of the XML tree without the property.
     """
-    while module_element not in list(root):
-        module_element = _get_parent(module_element)
-    root.remove(module_element)
+    parent = _get_parent(module_element)
+    parent.remove(module_element)
 
 
 def _add_parent_info(et):

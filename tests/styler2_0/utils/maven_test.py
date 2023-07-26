@@ -11,7 +11,7 @@ ACTIVITI_PROJECT = os.path.join(CURR_DIR, "../../res/activiti")
 
 def test_get_checkstyle_version_of_sample_project() -> None:
     version = get_checkstyle_version_of_project(Path(SAMPLE_PROJECT))
-    assert version == "8.29.0"
+    assert version == "8.29"
 
 
 def test_get_checkstyle_with_specified_runtime_version() -> None:
@@ -21,4 +21,4 @@ def test_get_checkstyle_with_specified_runtime_version() -> None:
 
 def test_get_checkstyle_version_from_variable() -> None:
     version = get_checkstyle_version_of_project(Path(ACTIVITI_PROJECT))
-    assert version == "8.29.0"
+    assert version == "8.29"

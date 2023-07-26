@@ -1,0 +1,7 @@
+Checkstyle version: 9.3
+Required removes:
+    _remove_from_modules(root, "TreeWalker", "LineLength")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingJavadoc")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "scope")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowMissingThrowsTags")
+    _remove_from_modules(root, "TreeWalker", "JavadocMethod", "allowThrowsTagsForSubclasses")
