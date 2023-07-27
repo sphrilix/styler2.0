@@ -18,6 +18,13 @@ def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
     :param output_dir: The output directory.
     :return: None.
     """
+    # Check if the input directory exists and is a directory
+    if not os.path.exists(output_dir) or not os.path.isdir(output_dir):
+        logging.error(
+            "Input directory %s does not exist or is not a directory.", input_dir
+        )
+        return
+
     # Iterate over each file in the input directory
     for file in os.listdir(input_dir):
         file = os.path.join(input_dir, file)
@@ -35,6 +42,11 @@ def _extract_methods_from_file(input_file: str, output_dir: str) -> None:
     :param output_dir: The output directory.
     :return: None.
     """
+    # Check if the input file exists and is a file
+    if not os.path.exists(input_file) or not os.path.isfile(input_file):
+        logging.error("Input file %s does not exist or is not a file.", input_file)
+        return
+
     # Extract the methods from the source code
     methods = _iterate_methods(input_file)
     logging.info("Found %d methods in file %s.", len(methods), input_file)
@@ -57,6 +69,11 @@ def _iterate_methods(file: str) -> dict[str, str]:
     :param file: The file.
     :return: A dictionary containing the method name and the method code.
     """
+    # Check if the file exists and is a java file
+    if not os.path.exists(file) or not file.endswith(".java"):
+        logging.error("File %s does not exist or is not a java file.", file)
+        return {}
+
     # Read the file
     try:
         with open(file) as r:
@@ -182,6 +199,9 @@ def main():
 
     # Iterate over each directory in the input directory
     for directory in os.listdir(INPUT_DIR):
+        if not os.path.isdir(os.path.join(INPUT_DIR, directory)):
+            continue
+
         # Create a subfolder for each directory in the output directory
         output_subdir = os.path.join(OUTPUT_DIR, directory)
         _extract_methods_from_dir(os.path.join(INPUT_DIR, directory), output_subdir)
