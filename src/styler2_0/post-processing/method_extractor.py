@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from enum import Enum
 from typing import Any
 
@@ -18,9 +19,12 @@ class OverwriteMode(Enum):
     SKIP = 1
 
 
-INPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\extracted"
-OUTPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\methods"
-OVERWRITE_MODE = OverwriteMode.SKIP
+INPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\temp_input"
+OUTPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\temp_output"
+OVERWRITE_MODE = OverwriteMode.OVERWRITE
+INCLUDE_METHOD_COMMENTS = True
+COMMENTS_REQUIRED = True
+REMOVE_INDENTATION = True
 
 
 def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
@@ -128,6 +132,17 @@ def _iterate_methods(file: str) -> dict[str, str]:
         method_text, startline, endline, lex = _get_method_text(
             codelines, startpos, endpos, startline, endline, lex
         )
+
+        # Get the first line of the method text
+        first_line = method_text.split("\n")[0].strip()
+
+        # Check if COMMENTS_REQUIRED is True and the method has a comment
+        if COMMENTS_REQUIRED and not first_line.startswith("/"):
+            logging.info(
+                "Skipping method %s, because it has no comment.", method_node.name
+            )
+            continue
+
         methods[method_node.name] = method_text
 
     return methods
@@ -168,31 +183,27 @@ def _get_method_text(
     last_endline_index: int,
 ) -> tuple[str, int | None, int | None, Any]:
     """
-    Get the text of a method.
+    Get the text of a method, including any comments before the method.
     :param codelines: The code lines.
     :param startpos: The start position of the method.
     :param endpos: The end position of the method.
     :param startline: The start line of the method.
     :param endline: The end line of the method.
-    :param last_endline_index: The index of the last end line.
+    :param last_endline_index: The comment_index of the last end line.
     :return: The text of the method.
     """
     if startpos is None:
         return "", None, None, None
 
-    # Get the start and end line index
+    # Get the start and end line comment_index
     startline_index = startline - 1
     endline_index = endline - 1 if endpos is not None else None
 
-    # 1. check for and fetch annotations
-    if last_endline_index is not None:
-        for line in codelines[(last_endline_index + 1) : (startline_index)]:
-            if "@" in line:
-                startline_index = startline_index - 1
+    # Fetch the method code
     meth_text = "<ST>".join(codelines[startline_index:endline_index])
     meth_text = meth_text[: meth_text.rfind("}") + 1]
 
-    # 2. remove trailing rbrace for last methods & any external content/comments
+    # Remove trailing rbrace for last methods & any external content/comments
     # if endpos is None and
     if abs(meth_text.count("}") - meth_text.count("{")) != 0:
         # imbalanced braces
@@ -202,10 +213,32 @@ def _get_method_text(
             meth_text = meth_text[: meth_text.rfind("}")]
             meth_text = meth_text[: meth_text.rfind("}") + 1]
 
-    # 3. remove any trailing comments
+    # Remove any trailing comments within the method
     meth_lines = meth_text.split("<ST>")
     meth_text = "".join(meth_lines)
     last_endline_index = startline_index + (len(meth_lines) - 1)
+
+    # Include comments before the method
+    if last_endline_index is not None:
+        comment_lines = []
+        comment_index = startline_index - 1
+        while comment_index >= 0 and (
+            codelines[comment_index].strip().startswith("/")
+            or codelines[comment_index].strip().startswith("*")
+        ):
+            comment_lines.insert(0, codelines[comment_index])
+            comment_index -= 1
+
+        comment_block = "".join(comment_lines)
+
+        # Include comments block at the beginning of the method text
+        if comment_block and INCLUDE_METHOD_COMMENTS:
+            meth_text = comment_block + meth_text
+            startline_index = comment_index + 1
+
+    # Remove indentation from the method text
+    if REMOVE_INDENTATION:
+        meth_text = _remove_indentation(meth_text)
 
     return (
         meth_text,
@@ -215,6 +248,40 @@ def _get_method_text(
     )
 
 
+def _remove_indentation(meth_text: str) -> str:
+    """
+    Remove indentation from the method text there is the same amount of indentation
+    on each line.
+    :param meth_text: The method text.
+    :return: The method text without indentation.
+    """
+    meth_lines = meth_text.split("\n")
+    indentation_changed = False
+    minimal_indentation = len(meth_lines[0]) - len(meth_lines[0].lstrip())
+
+    # Calculate the indentation of all lines
+    for line in meth_lines:
+        # Skip empty lines
+        if not line.strip():
+            continue
+
+        indentation = len(line) - len(line.lstrip())
+
+        if indentation < minimal_indentation:
+            indentation_changed = True
+            break
+
+        minimal_indentation = min(indentation, minimal_indentation)
+
+    # If the indentation is the same on each line, remove it
+    if not indentation_changed:
+        indentation = minimal_indentation
+        for i, line in enumerate(meth_lines):
+            meth_lines[i] = line[indentation:]
+
+    return "\n".join(meth_lines)
+
+
 def main():
     """
     Extracts java methods from their classes and stores each in a separate file.
@@ -222,6 +289,13 @@ def main():
     # Setup logging
     log_file = os.path.join(OUTPUT_DIR, "method_extractor.log")
     setup_logging(log_file)
+
+    # Don't allow COMMENTS_REQUIRED to be True if INCLUDE_METHOD_COMMENTS is False
+    if COMMENTS_REQUIRED and not INCLUDE_METHOD_COMMENTS:
+        logging.error(
+            "INCLUDE_METHOD_COMMENTS must be True if COMMENTS_REQUIRED is True."
+        )
+        sys.exit(1)
 
     # Iterate over each directory in the input directory
     for directory in os.listdir(INPUT_DIR):
