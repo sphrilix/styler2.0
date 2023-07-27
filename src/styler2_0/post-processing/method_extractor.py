@@ -1,5 +1,6 @@
 import logging
 import os
+from enum import Enum
 from typing import Any
 
 import javalang
@@ -7,8 +8,19 @@ from javalang.tree import MethodDeclaration
 
 from src.styler2_0.main import setup_logging
 
+
+class OverwriteMode(Enum):
+    """
+    Enum for the overwrite mode.
+    """
+
+    OVERWRITE = 0
+    SKIP = 1
+
+
 INPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\extracted"
 OUTPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\methods"
+OVERWRITE_MODE = OverwriteMode.SKIP
 
 
 def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
@@ -19,7 +31,7 @@ def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
     :return: None.
     """
     # Check if the input directory exists and is a directory
-    if not os.path.exists(output_dir) or not os.path.isdir(output_dir):
+    if not os.path.exists(input_dir) or not os.path.isdir(input_dir):
         logging.error(
             "Input directory %s does not exist or is not a directory.", input_dir
         )
@@ -35,7 +47,10 @@ def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
             logging.warning("File %s is not a java file.", file)
 
 
-def _extract_methods_from_file(input_file: str, output_dir: str) -> None:
+def _extract_methods_from_file(
+    input_file: str,
+    output_dir: str,
+) -> None:
     """
     Extracts java methods from a file and stores each in a separate file.
     :param input_file: The input file.
@@ -47,12 +62,23 @@ def _extract_methods_from_file(input_file: str, output_dir: str) -> None:
         logging.error("Input file %s does not exist or is not a file.", input_file)
         return
 
+    # Specify the output subdirectory path and name
+    output_subdir = os.path.join(output_dir, os.path.basename(input_file))
+
+    # Check if we skip the file
+    if os.path.exists(output_subdir) and OVERWRITE_MODE == OverwriteMode.SKIP:
+        logging.info(
+            "Skipping file %s, because the output directory %s already exists.",
+            input_file,
+            output_dir,
+        )
+        return
+
     # Extract the methods from the source code
     methods = _iterate_methods(input_file)
     logging.info("Found %d methods in file %s.", len(methods), input_file)
 
     # Create a subfolder for each input file in the output directory
-    output_subdir = os.path.join(output_dir, os.path.basename(input_file))
     os.makedirs(output_subdir, exist_ok=True)
 
     # Write each method to a separate file
