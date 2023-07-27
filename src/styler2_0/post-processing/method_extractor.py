@@ -19,9 +19,11 @@ class OverwriteMode(Enum):
     SKIP = 1
 
 
-INPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\temp_input"
-OUTPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\temp_output"
-OVERWRITE_MODE = OverwriteMode.OVERWRITE
+# TODO: Fix Abstract methods of interfaces e.g. hadoop\AbfsCounter.java
+
+INPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\extracted"
+OUTPUT_DIR = r"D:\PyCharm_Projects_D\styler2.0\methods_2"
+OVERWRITE_MODE = OverwriteMode.SKIP
 INCLUDE_METHOD_COMMENTS = True
 COMMENTS_REQUIRED = True
 REMOVE_INDENTATION = True
@@ -82,8 +84,9 @@ def _extract_methods_from_file(
     methods = _iterate_methods(input_file)
     logging.info("Found %d methods in file %s.", len(methods), input_file)
 
-    # Create a subfolder for each input file in the output directory
-    os.makedirs(output_subdir, exist_ok=True)
+    # Create a subfolder for each input file if methods were found
+    if methods:
+        os.makedirs(output_subdir, exist_ok=True)
 
     # Write each method to a separate file
     for method_name, method_code in methods.items():
@@ -120,7 +123,7 @@ def _iterate_methods(file: str) -> dict[str, str]:
     lex = None
     try:
         parse_tree = javalang.parse.parse(code_text)
-    except javalang.parser.JavaSyntaxError as e:
+    except Exception as e:
         logging.warning("Could not parse file %s.", file)
         logging.warning(e)
         return {}
