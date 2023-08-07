@@ -1,5 +1,7 @@
 import math
+import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import torch
 from torch import Tensor, nn
@@ -11,6 +13,9 @@ class ModelBase(nn.Module, ABC):
     """
     Abstract base class for a model.
     """
+
+    CURR_DIR = Path(os.path.dirname(os.path.relpath(__file__)))
+    CONFIGS_PATH = CURR_DIR / Path("../../../config/models/")
 
     def __init__(self):
         super().__init__()
@@ -71,3 +76,12 @@ class ModelBase(nn.Module, ABC):
                 f"\t Val. Loss: {valid_loss:.3f} "
                 f"|  Val. PPL: {math.exp(valid_loss):7.3f}"
             )
+
+    @abstractmethod
+    def forward(self, *args: ..., **kwargs: ...) -> Tensor:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def build_from_config(cls) -> "ModelBase":
+        pass

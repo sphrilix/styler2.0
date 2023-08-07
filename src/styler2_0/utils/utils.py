@@ -6,6 +6,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TypeVar
 
+import yaml
+from yaml import SafeLoader
+
 T = TypeVar("T")
 E = TypeVar("E", bound=Enum)
 
@@ -149,3 +152,8 @@ def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:
                 files_in_dir.append(Path(subdir) / Path(file))
 
     return files_in_dir
+
+
+def load_yaml_file(path: Path) -> dict[str, Any]:
+    raw_str = read_content_of_file(path)
+    return yaml.load(raw_str, Loader=SafeLoader)

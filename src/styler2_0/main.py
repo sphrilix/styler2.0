@@ -57,7 +57,12 @@ def main(args: list[str]) -> int:
         case Tasks.PREPROCESSING:
             preprocessing(parsed_args.violation_dir, parsed_args.splits)
         case Tasks.TRAIN:
-            train(parsed_args.model, parsed_args.path, parsed_args.epochs)
+            train(
+                parsed_args.model,
+                parsed_args.path,
+                parsed_args.epochs,
+                parsed_args.device,
+            )
         case _:
             return 1
     return 0
@@ -142,7 +147,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     )
 
     # Set up arguments for model training
-    train_sub_parser.add_argument("--model", type=Models, required=True)
+    train_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
     train_sub_parser.add_argument("--path", type=Path, required=True)
     train_sub_parser.add_argument("--epochs", type=int, required=True)
     train_sub_parser.add_argument("--device", choices=("cpu", "gpu"), required=True)

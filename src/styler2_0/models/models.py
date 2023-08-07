@@ -9,8 +9,7 @@ from torch import Tensor, long, nn, tensor
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from styler2_0.models.lstm import LSTM, LSTMDecoder, LSTMEncoder
-from styler2_0.models.model_base import ModelBase
+from styler2_0.models.lstm import LSTM
 from styler2_0.utils.utils import read_content_of_file
 
 TRAIN_DATA = Path("train")
@@ -26,22 +25,10 @@ LSTM_OUTPUT_DIM = 105
 
 
 class Models(Enum):
-    LSTM = "LSTM"
-    ANN = "ANN"
-    NGRAM = "NGRAM"
-    TRANSFORMER = "TRANSFORMER"
-
-    @classmethod
-    def _missing_(cls, value: object) -> Any:
-        raise ValueError(f"{value} is not a supported model.")
-
-
-def _build_model(model: Models) -> ModelBase:
-    match model:
-        case Models.LSTM:
-            return _build_lstm()
-        case _:
-            raise ValueError()
+    LSTM = LSTM
+    ANN = None
+    NGRAM = None
+    TRANSFORMER = None
 
 
 # noinspection PyTypeChecker
@@ -91,31 +78,16 @@ def _load_vocab_to_dict_int_str(raw_vocab: Any) -> bidict[int, str]:
     return bidict({int(key): value for key, value in raw_vocab.items()})
 
 
-def _build_lstm() -> LSTM:
-    enc_emb_dim = 256
-    dec_emb_dim = 256
-    hid_dim = 512
-    n_layers = 1
-    enc_dropout = 0.5
-    dec_dropout = 0.5
-
-    device = "cpu"
-
-    enc = LSTMEncoder(LSTM_INPUT_DIM, enc_emb_dim, hid_dim, n_layers, enc_dropout)
-    dec = LSTMDecoder(LSTM_OUTPUT_DIM, dec_emb_dim, hid_dim, n_layers, dec_dropout)
-
-    return LSTM(enc, dec, device).to(device)
-
-
-def train(model: Models, project_dir: Path, epochs: int) -> None:
+def train(model: Models, project_dir: Path, epochs: int, device: str) -> None:
     """
     Train the given model.
+    :param device: Device on which the model should be run.
     :param model: The given model.
     :param project_dir: Project dir with the data.
     :param epochs: Count epochs.
     :return:
     """
-    model = _build_model(model)
+    model = model.value.build_from_config()
     src_vocab, trg_vocab = _load_vocabs(project_dir)
     train_data, val_data = _load_train_and_val_data(project_dir, src_vocab, trg_vocab)
     criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.inv["<PAD>"])
