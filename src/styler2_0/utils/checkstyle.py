@@ -283,8 +283,8 @@ def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
     tree = Xml.parse(config_path)
     root = tree.getroot()
 
-    # Add parent info to all elements
-    _add_parent_info(root)
+    # Create a dictionary mapping each element to its parent
+    parent_map = {c: p for p in root.iter() for c in p}
 
     # Remove all relative paths (starting with "/" followed by a letter)
     for property_element in root.findall(".//property"):
@@ -293,11 +293,8 @@ def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
         ):
             # Remove the element and all children/parents from the tree root
             while property_element not in list(root):
-                property_element = _get_parent(property_element)
+                property_element = parent_map[property_element]
             root.remove(property_element)
-
-    # Remove parent info
-    _strip_parent_info(root)
 
     # Write everything until "<module" to the new file
     old_config = read_content_of_file(config_path)
@@ -309,21 +306,3 @@ def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
     # Append the root and all children to the new file
     xml_string = Xml.tostring(root, encoding="unicode")
     save_content_to_file(copied_file, xml_string, mode="a")
-
-
-def _add_parent_info(et):
-    for child in et:
-        child.attrib["__my_parent__"] = et
-        _add_parent_info(child)
-
-
-def _strip_parent_info(et):
-    for child in et:
-        child.attrib.pop("__my_parent__", "None")
-        _strip_parent_info(child)
-
-
-def _get_parent(et):
-    if "__my_parent__" in et.attrib:
-        return et.attrib["__my_parent__"]
-    return None
