@@ -10,7 +10,7 @@ from shutil import copyfile
 
 from streamerate import stream
 
-from src.styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
@@ -300,15 +300,15 @@ def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
     _strip_parent_info(root)
 
     # Write everything until "<module" to the new file
-    with open(copied_file, "w") as new_config, open(config_path) as old_config:
-        for line in old_config:
-            if line.strip().startswith("<module"):
-                break
-            new_config.write(line)
+    old_config = read_content_of_file(config_path)
+    for line in old_config:
+        if line.strip().startswith("<module"):
+            break
+        save_content_to_file(copied_file, line, mode="a")
 
     # Append the root and all children to the new file
-    with open(copied_file, "a") as new_config:
-        new_config.write(Xml.tostring(root, encoding="unicode"))
+    xml_string = Xml.tostring(root, encoding="unicode")
+    save_content_to_file(copied_file, xml_string, mode="a")
 
 
 def _add_parent_info(et):
