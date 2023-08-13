@@ -7,7 +7,7 @@ import pytest
 
 from src.styler2_0.utils.checkstyle import (
     WrongViolationAmountException,
-    remove_relative_paths,
+    _remove_relative_paths,
     returns_n_violations,
     run_checkstyle_on_dir,
     run_checkstyle_on_str,
@@ -59,7 +59,7 @@ def test_remove_relative_paths() -> None:
     This test checks that the relative paths are removed.
     """
     save = tempfile.mkdtemp()
-    remove_relative_paths(CHECKSTYLE_CONFIG_3, save / Path("checkstyle-modified.xml"))
+    _remove_relative_paths(CHECKSTYLE_CONFIG_3, save / Path("checkstyle-modified.xml"))
 
     actual_path = os.path.join(save, "checkstyle-modified.xml")
     expected_path = os.path.join(SAMPLE_PROJECT_3, "checkstyle-modified.xml")
@@ -78,7 +78,7 @@ def test_remove_relative_paths_2() -> None:
     This test checks that the file is only modified in terms of formatting and comments.
     """
     save = tempfile.mkdtemp()
-    remove_relative_paths(CHECKSTYLE_CONFIG_4, save / Path("checkstyle-modified.xml"))
+    _remove_relative_paths(CHECKSTYLE_CONFIG_4, save / Path("checkstyle-modified.xml"))
 
     actual_path = os.path.join(save, "checkstyle-modified.xml")
     expected_path = os.path.join(SAMPLE_PROJECT_4, "checkstyle-modified.xml")
