@@ -53,7 +53,7 @@ def _get_namespaces(root: Xml.Element) -> dict[str, str]:
 
 
 def _parse_checkstyle_version_from_xml_elem(
-    elem: Xml.Element, root, namespaces: dict[str, str]
+    elem: Xml.Element, root: Xml.Element, namespaces: dict[str, str]
 ) -> str:
     checkstyle_dependencies = elem.findall(".//xmlns:dependency", namespaces=namespaces)
     for dependency in checkstyle_dependencies:
@@ -84,7 +84,9 @@ def get_checkstyle_version_of_project(project_dir: Path) -> str:
     return _get_checkstyle_version_from_pom(pom)
 
 
-def _parse_checkstyle_version_from_variable(variable, root, namespaces):
+def _parse_checkstyle_version_from_variable(
+    variable: str, root: Xml.Element, namespaces: dict[str, str]
+) -> str | None:
     """
     Parse checkstyle version from variable.
     :param variable: Variable to parse.
