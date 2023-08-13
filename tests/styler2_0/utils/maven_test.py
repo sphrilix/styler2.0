@@ -6,7 +6,7 @@ from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 CURR_DIR = os.path.dirname(os.path.relpath(__file__))
 SAMPLE_PROJECT = os.path.join(CURR_DIR, "../../res/sample_project")
 SAMPLE_PROJECT_2 = os.path.join(CURR_DIR, "../../res/sample_project_2")
-ACTIVITI_PROJECT = os.path.join(CURR_DIR, "../../res/activiti")
+ACTIVITI_PROJECT = os.path.join(CURR_DIR, "../../res/sample_project_variable")
 
 
 def test_get_checkstyle_version_of_sample_project() -> None:
