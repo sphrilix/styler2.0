@@ -46,7 +46,8 @@ class Tasks(Enum):
         return self.value
 
 
-def main(args: list[str]) -> int:
+def main() -> int:
+    args = sys.argv[1:]
     arg_parser = _set_up_arg_parser()
     parsed_args = arg_parser.parse_args(args)
     task = Tasks(parsed_args.command)
@@ -170,4 +171,4 @@ def _add_checkstyle_arguments(checkstyle_sub_parser):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
