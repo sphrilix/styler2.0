@@ -10,6 +10,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from styler2_0.models.lstm import LSTM
+from styler2_0.models.model_base import ModelBase
 from styler2_0.utils.utils import read_content_of_file
 
 TRAIN_DATA = Path("train")
@@ -33,14 +34,18 @@ class Models(Enum):
 
 # noinspection PyTypeChecker
 def _load_train_and_val_data(
-    project_dir: Path, src_vocab: bidict, trg_vocab: bidict
+    project_dir: Path, src_vocab: bidict, trg_vocab: bidict, model: ModelBase
 ) -> tuple[DataLoader, DataLoader]:
-    train_inp = _load_file_to_tensor(project_dir / TRAIN_SRC, LSTM_INPUT_DIM, src_vocab)
-    train_trg = _load_file_to_tensor(
-        project_dir / TRAIN_TRG, LSTM_OUTPUT_DIM, trg_vocab
+    train_inp = _load_file_to_tensor(
+        project_dir / TRAIN_SRC, model.input_length, src_vocab
     )
-    val_inp = _load_file_to_tensor(project_dir / VAL_SRC, LSTM_INPUT_DIM, src_vocab)
-    val_trg = _load_file_to_tensor(project_dir / VAL_TRG, LSTM_OUTPUT_DIM, trg_vocab)
+    train_trg = _load_file_to_tensor(
+        project_dir / TRAIN_TRG, model.output_length, trg_vocab
+    )
+    val_inp = _load_file_to_tensor(project_dir / VAL_SRC, model.input_length, src_vocab)
+    val_trg = _load_file_to_tensor(
+        project_dir / VAL_TRG, model.output_length, trg_vocab
+    )
     return (
         DataLoader(list(zip(train_inp, train_trg, strict=True)), batch_size=3),
         DataLoader(list(zip(val_inp, val_trg, strict=True)), batch_size=2),
@@ -89,7 +94,9 @@ def train(model: Models, project_dir: Path, epochs: int, device: str) -> None:
     """
     model = model.value.build_from_config()
     src_vocab, trg_vocab = _load_vocabs(project_dir)
-    train_data, val_data = _load_train_and_val_data(project_dir, src_vocab, trg_vocab)
+    train_data, val_data = _load_train_and_val_data(
+        project_dir, src_vocab, trg_vocab, model
+    )
     criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.inv["<PAD>"])
     optimizer = Adam(model.parameters())
     model.fit(epochs, train_data, val_data, criterion, optimizer)

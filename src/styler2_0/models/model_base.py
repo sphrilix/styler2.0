@@ -17,7 +17,9 @@ class ModelBase(nn.Module, ABC):
     CURR_DIR = Path(os.path.dirname(os.path.relpath(__file__)))
     CONFIGS_PATH = CURR_DIR / Path("../../../config/models/")
 
-    def __init__(self):
+    def __init__(self, input_length: int, output_length: int) -> None:
+        self.input_length = input_length
+        self.output_length = output_length
         super().__init__()
 
     def _fit_one_epoch(

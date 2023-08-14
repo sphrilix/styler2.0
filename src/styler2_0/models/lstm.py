@@ -111,26 +111,35 @@ class LSTM(ModelBase):
     @classmethod
     def build_from_config(cls) -> "LSTM":
         lstm_params = load_yaml_file(cls.CONFIGS_PATH / cls.CONFIG_FILE)
+        input_length = lstm_params["input_length"]
+        output_length = lstm_params["output_length"]
         encoder = LSTMEncoder(
-            lstm_params["input_length"],
+            input_length,
             lstm_params["enc_emb_dim"],
             lstm_params["hidden_dim"],
             lstm_params["n_layers"],
             lstm_params["enc_dropout"],
         )
         decoder = LSTMDecoder(
-            lstm_params["output_length"],
+            output_length,
             lstm_params["dec_emb_dim"],
             lstm_params["hidden_dim"],
             lstm_params["n_layers"],
             lstm_params["dec_dropout"],
         )
-        return LSTM(encoder, decoder, lstm_params["device"])
+        return LSTM(
+            encoder, decoder, lstm_params["device"], input_length, output_length
+        )
 
     def __init__(
-        self, encoder: LSTMEncoder, decoder: LSTMDecoder, device: Device
+        self,
+        encoder: LSTMEncoder,
+        decoder: LSTMDecoder,
+        device: Device,
+        input_length: int,
+        output_length: int,
     ) -> None:
-        super().__init__()
+        super().__init__(input_length, output_length)
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
