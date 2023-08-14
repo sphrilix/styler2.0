@@ -7,7 +7,7 @@ readme = "README.adoc"
 packages = [{include = "styler2_0", from = "src"}]
 
 [tool.poetry.scripts]
-main = "styler2_0.main:main"
+styler2_0 = "styler2_0.main:main"
 
 
 [tool.poetry.dependencies]
