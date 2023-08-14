@@ -62,7 +62,6 @@ def main() -> int:
                 parsed_args.model,
                 parsed_args.path,
                 parsed_args.epochs,
-                parsed_args.device,
             )
         case _:
             return 1
@@ -151,7 +150,6 @@ def _set_up_arg_parser() -> ArgumentParser:
     train_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
     train_sub_parser.add_argument("--path", type=Path, required=True)
     train_sub_parser.add_argument("--epochs", type=int, required=True)
-    train_sub_parser.add_argument("--device", choices=("cpu", "gpu"), required=True)
 
     return arg_parser
 

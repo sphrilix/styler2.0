@@ -83,7 +83,7 @@ def _load_vocab_to_dict_int_str(raw_vocab: Any) -> bidict[int, str]:
     return bidict({int(key): value for key, value in raw_vocab.items()})
 
 
-def train(model: Models, project_dir: Path, epochs: int, device: str) -> None:
+def train(model: Models, project_dir: Path, epochs: int) -> None:
     """
     Train the given model.
     :param device: Device on which the model should be run.
