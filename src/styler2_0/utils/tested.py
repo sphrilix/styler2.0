@@ -1,10 +1,11 @@
 import re
+from pathlib import Path
 
 # Regular expression to match test file names
 TEST_REGEX = re.compile(r"test$", re.IGNORECASE)
 
 
-def _split_test_files(files: set) -> (set, set):
+def _split_test_files(files: set[Path]) -> (set[Path], set[Path]):
     """
     Splits the files into src and test files.
     A file is considered a test file if it matches the test regex.
@@ -24,7 +25,7 @@ def _split_test_files(files: set) -> (set, set):
     return src_files, test_files
 
 
-def extract_tested_src_files(files: set) -> set:
+def extract_tested_src_files(files: set[Path]) -> set[Path]:
     """
     Returns the set of tested src files.
     Files are assumed to be a src file if they do not match the test regex.
@@ -42,7 +43,7 @@ def extract_tested_src_files(files: set) -> set:
     return _tested_files(src_files, test_file_names)
 
 
-def _tested_files(src_files: set, test_file_names: set) -> set:
+def _tested_files(src_files: set[Path], test_file_names: set[str]) -> set[Path]:
     """
     Returns the set of tested src files.
     A file MyClass is considered tested if there exists a file MyClassTest, but also
@@ -61,7 +62,7 @@ def _tested_files(src_files: set, test_file_names: set) -> set:
     return tested_files
 
 
-def _test_filenames(test_files: set) -> set:
+def _test_filenames(test_files: set[Path]) -> set[str]:
     """
     Returns the set of test filenames.
     @param test_files: The test files.
