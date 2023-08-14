@@ -45,9 +45,9 @@ class LSTMEncoder(nn.Module):
         # TODO:
         #  - reshape for more than 1 layer -> grep last outputs
         #  - check if reshape actually performs the desired outcome
-        return hidden.reshape(1, batch_size, self.hid_dim * 2), cell.reshape(
-            1, batch_size, self.hid_dim * 2
-        )
+        return hidden.reshape(
+            self.n_layers, batch_size, self.hid_dim * 2
+        ), cell.reshape(self.n_layers, batch_size, self.hid_dim * 2)
 
 
 class LSTMDecoder(nn.Module):
