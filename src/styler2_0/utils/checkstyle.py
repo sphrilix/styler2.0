@@ -296,12 +296,15 @@ def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
                 property_element = parent_map[property_element]
             root.remove(property_element)
 
+    # Create empty file
+    save_content_to_file(copied_file, "", mode="w")
+
     # Write everything until "<module" to the new file
     old_config = read_content_of_file(config_path)
-    for line in old_config:
+    for line in old_config.splitlines():
         if line.strip().startswith("<module"):
             break
-        save_content_to_file(copied_file, line, mode="a")
+        save_content_to_file(copied_file, line + "\n", mode="a")
 
     # Append the root and all children to the new file
     xml_string = Xml.tostring(root, encoding="unicode")

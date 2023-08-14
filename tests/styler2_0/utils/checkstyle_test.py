@@ -12,16 +12,16 @@ from src.styler2_0.utils.checkstyle import (
     run_checkstyle_on_dir,
     run_checkstyle_on_str,
 )
+from styler2_0.utils.utils import read_content_of_file
 
 CURR_DIR = os.path.dirname(os.path.relpath(__file__))
 SAMPLE_PROJECT = os.path.join(CURR_DIR, "../../res/sample_project")
 CHECKSTYLE_CONFIG = os.path.join(SAMPLE_PROJECT, "checkstyle.xml")
 
-SAMPLE_PROJECT_3 = os.path.join(CURR_DIR, "../../res/sample_project_3")
-CHECKSTYLE_CONFIG_3 = os.path.join(SAMPLE_PROJECT_3, "checkstyle.xml")
-
-SAMPLE_PROJECT_4 = os.path.join(CURR_DIR, "../../res/sample_project_4")
-CHECKSTYLE_CONFIG_4 = os.path.join(SAMPLE_PROJECT_4, "checkstyle.xml")
+RELATIVE_PATHS_PROJECT = os.path.join(
+    CURR_DIR, "../../res/sample_project_relative_paths"
+)
+CHECKSTYLE_RELATIVE_PATHS = os.path.join(RELATIVE_PATHS_PROJECT, "checkstyle.xml")
 
 
 def test_run_checkstyle_on_dir() -> None:
@@ -59,33 +59,21 @@ def test_remove_relative_paths() -> None:
     This test checks that the relative paths are removed.
     """
     save = tempfile.mkdtemp()
-    _remove_relative_paths(CHECKSTYLE_CONFIG_3, save / Path("checkstyle-modified.xml"))
+    _remove_relative_paths(
+        Path(CHECKSTYLE_RELATIVE_PATHS), save / Path("checkstyle-modified.xml")
+    )
 
-    actual_path = os.path.join(save, "checkstyle-modified.xml")
-    expected_path = os.path.join(SAMPLE_PROJECT_3, "checkstyle-modified.xml")
-
-    # compare expected and actual file
-    with open(expected_path) as expected_file, open(actual_path) as actual_file:
-        # Ignore last line as it contains a newline character in one file
-        assert expected_file.readline()[0:-1] == actual_file.readline()[0:-1]
-
-    shutil.rmtree(save)
-
-
-def test_remove_relative_paths_2() -> None:
-    """
-    The checkstyle.xml file in sample_project_4 does not contain any relative paths.
-    This test checks that the file is only modified in terms of formatting and comments.
-    """
-    save = tempfile.mkdtemp()
-    _remove_relative_paths(CHECKSTYLE_CONFIG_4, save / Path("checkstyle-modified.xml"))
-
-    actual_path = os.path.join(save, "checkstyle-modified.xml")
-    expected_path = os.path.join(SAMPLE_PROJECT_4, "checkstyle-modified.xml")
+    actual_path = Path(os.path.join(save, "checkstyle-modified.xml"))
+    expected_path = Path(
+        os.path.join(RELATIVE_PATHS_PROJECT, "checkstyle-modified.xml")
+    )
 
     # compare expected and actual file
-    with open(expected_path) as expected_file, open(actual_path) as actual_file:
-        # Ignore last line as it contains a newline character in one file
-        assert expected_file.readline()[0:-1] == actual_file.readline()[0:-1]
+    expected_content = read_content_of_file(expected_path)
+    actual_content = read_content_of_file(actual_path)
+    for expected_line, actual_line in zip(
+        expected_content.splitlines(), actual_content.splitlines(), strict=True
+    ):
+        assert expected_line == actual_line
 
     shutil.rmtree(save)

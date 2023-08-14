@@ -4,13 +4,13 @@ from pathlib import Path
 from src.styler2_0.utils.tested import extract_tested_src_files
 
 CURR_DIR = os.path.dirname(os.path.relpath(__file__))
-SAMPLE_PROJECT_5 = os.path.join(CURR_DIR, "../../res/sample_project_5")
+TESTED_PROJECT = os.path.join(CURR_DIR, "../../res/sample_project_tested")
 
 
 def test_split_test_files() -> None:
     # load all files in SAMPLE_PROJECT_5 as set of paths
     input_files = set()
-    for root, _, files in os.walk(SAMPLE_PROJECT_5):
+    for root, _, files in os.walk(TESTED_PROJECT):
         for file in files:
             input_files.add(Path(os.path.join(root, file)))
 
