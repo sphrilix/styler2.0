@@ -22,27 +22,11 @@ After poetry is set up, you can run the application with your preferred IDE or f
 
 === Command Line
 
-1. Open a terminal and navigate to the project directory.
-2. Activate the virtual environment created by poetry.
-3. Set the PYTHONPATH environment variable to the project directory (replace +<PROJECT_PATH>+).
-4. Run the application with the desired subcommand and options.
-
-Windows example:
+You can run the application from the command line by using the `poetry run` command:
 
 [source,bash]
 ----
-poetry shell
-set PYTHONPATH=%PYTHONPATH%;<PROJECT_PATH>
-python src/styler2_0/main.py <subcommand> <options>
-----
-
-Linux example:
-
-[source,bash]
-----
-poetry shell
-export PYTHONPATH=$PYTHONPATH:<PROJECT_PATH>
-python src/styler2_0/main.py <subcommand> <options>
+poetry run styler2_0 <subcommand> <options>
 ----
 
 Replace `<subcommand>` with one of the four available subcommands: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, or `CHECKSTYLE`.
@@ -57,28 +41,28 @@ If the examples are run from shell, poetry must be activated and the PYTHONPATH 
 
 [source,bash]
 ----
-python src/styler2_0/main.py GENERATE_VIOLATIONS --save </path/to/save> --source </path/to/source> --protocol THREE_GRAM --n 100 --delta 0.5
+poetry run styler2_0 GENERATE_VIOLATIONS --save </path/to/save> --source </path/to/source> --protocol THREE_GRAM --n 100 --delta 0.5
 ----
 
 * To adapt three-grams from an input file and save the results:
 
 [source,bash]
 ----
-python src/styler2_0/main.py PREPROCESSING --violation_dir </path/to/violations> --splits 5
+poetry run styler2_0 PREPROCESSING --violation_dir </path/to/violations> --splits 5
 ----
 
 * To perform preprocessing on violation files:
 
 [source,bash]
 ----
-python src/styler2_0/main.py CHECKSTYLE --save </path/to/save> --source </path/to/source>
+poetry run styler2_0 CHECKSTYLE --save </path/to/save> --source </path/to/source>
 ----
 
 * To run checkstyle and save the results:
 
 [source,bash]
 ----
-python main.py CHECKSTYLE --save </path/to/save> --source </path/to/source>
+poetry run styler2_0 CHECKSTYLE --save </path/to/save> --source </path/to/source>
 ----
 
 Replace all paths with the desired paths.
