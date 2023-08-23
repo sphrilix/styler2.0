@@ -26,6 +26,10 @@ LSTM_OUTPUT_DIM = 105
 
 
 class Models(Enum):
+    """
+    The supported models.
+    """
+
     LSTM = LSTM
     ANN = None
     NGRAM = None
