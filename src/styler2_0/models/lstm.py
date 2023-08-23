@@ -14,6 +14,14 @@ class LSTMEncoder(nn.Module):
     def __init__(
         self, input_dim: int, emb_dim: int, hid_dim: int, n_layers: int, dropout: float
     ) -> None:
+        """
+        Initialize the encoder.
+        :param input_dim: size of the input vocabulary
+        :param emb_dim:  size of the embedding
+        :param hid_dim: size of the hidden layer
+        :param n_layers: size of the number of layers
+        :param dropout: percentage of dropout
+        """
         super().__init__()
 
         self.hid_dim = hid_dim
@@ -28,6 +36,12 @@ class LSTMEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src: Tensor) -> (Tensor, Tensor):
+        """
+        Forward pass of the encoder.
+        :param src: input tensor
+        :return: hidden and cell states
+        """
+
         # src = [src len, batch size]
         batch_size = src.shape[1]
         embedded = self.dropout(self.embedding(src))
@@ -54,6 +68,14 @@ class LSTMDecoder(nn.Module):
     def __init__(
         self, output_dim: int, emb_dim: int, hid_dim: int, n_layers: int, dropout: float
     ) -> None:
+        """
+        Initialize the decoder.
+        :param output_dim: size of the output vocabulary
+        :param emb_dim: size of the embedding
+        :param hid_dim: size of the hidden layer
+        :param n_layers: number of layers
+        :param dropout: percentage of dropout
+        """
         super().__init__()
 
         self.output_dim = output_dim
@@ -71,6 +93,14 @@ class LSTMDecoder(nn.Module):
     def forward(
         self, input: Tensor, hidden: Tensor, cell: Tensor
     ) -> (Tensor, Tensor, Tensor):
+        """
+        Forward pass of the decoder.
+        :param input: input tensor
+        :param hidden: hidden state
+        :param cell: cell state
+        :return: prediction, hidden and cell states
+        """
+
         # input = [batch size]
         # hidden = [n layers * n directions, batch size, hid dim]
         # cell = [n layers * n directions, batch size, hid dim]
@@ -110,6 +140,10 @@ class LSTM(ModelBase):
 
     @classmethod
     def build_from_config(cls) -> "LSTM":
+        """
+        Build the model from the configuration file.
+        :return: the model.
+        """
         lstm_params = load_yaml_file(cls.CONFIGS_PATH / cls.CONFIG_FILE)
         input_length = lstm_params["input_length"]
         output_length = lstm_params["output_length"]
@@ -139,6 +173,14 @@ class LSTM(ModelBase):
         input_length: int,
         output_length: int,
     ) -> None:
+        """
+        Initialize the model.
+        :param encoder: the encoder
+        :param decoder: the decoder
+        :param device: the device
+        :param input_length: input length
+        :param output_length: output length
+        """
         super().__init__(input_length, output_length)
         self.encoder = encoder
         self.decoder = decoder
@@ -154,6 +196,13 @@ class LSTM(ModelBase):
     def forward(
         self, src: Tensor, trg: Tensor, teacher_forcing_ratio: float = 0.5
     ) -> Tensor:
+        """
+        Forward pass of the model.
+        :param src: input tensor
+        :param trg: output tensor
+        :param teacher_forcing_ratio: teacher forcing ratio
+        :return: predictions
+        """
         # src = [src len, batch size]
         # trg = [trg len, batch size]
         # teacher_forcing_ratio is probability to use teacher forcing
@@ -197,6 +246,13 @@ class LSTM(ModelBase):
     def _fit_one_batch(
         self, batch: Tensor, criterion: nn.Module, optimizer: Optimizer
     ) -> float:
+        """
+        Fit one batch.
+        :param batch: The batch to be fitted.
+        :param criterion: Criterion to be used.
+        :param optimizer: Optimizer to be used.
+        :return: the loss.
+        """
         src = batch[0].T
         trg = batch[1].T
 
@@ -226,6 +282,12 @@ class LSTM(ModelBase):
         return loss.item()
 
     def _eval_one_batch(self, batch: Tensor, criterion: nn.Module) -> float:
+        """
+        Evaluate one batch.
+        :param batch: The batch to be evaluated.
+        :param criterion: The criterion to be used.
+        :return: the loss.
+        """
         src = batch[0].T
         trg = batch[1].T
 
