@@ -25,6 +25,13 @@ class ModelBase(nn.Module, ABC):
     def _fit_one_epoch(
         self, data: DataLoader, criterion: nn.Module, optimizer: Optimizer
     ) -> float:
+        """
+        Fit one epoch.
+        :param data: The data to fit.
+        :param criterion: The loss function.
+        :param optimizer: The optimizer.
+        :return: The loss.
+        """
         self.train()
         epoch_loss = 0
         for batch in data:
@@ -32,6 +39,12 @@ class ModelBase(nn.Module, ABC):
         return epoch_loss / len(data)
 
     def _eval_one_epoch(self, data: DataLoader, criterion: nn.Module) -> float:
+        """
+        Evaluate one epoch.
+        :param data: The data to evaluate.
+        :param criterion: The loss function.
+        :return: The loss.
+        """
         self.eval()
         epoch_loss = 0
         with torch.no_grad():
@@ -43,10 +56,23 @@ class ModelBase(nn.Module, ABC):
     def _fit_one_batch(
         self, batch: Tensor, criterion: nn.Module, optimizer: Optimizer
     ) -> float:
+        """
+        Fit one batch.
+        :param batch: The batch to be fitted.
+        :param criterion: The criterion to be used.
+        :param optimizer: The optimizer to be used.
+        :return: The loss.
+        """
         pass
 
     @abstractmethod
     def _eval_one_batch(self, batch: Tensor, criterion: nn.Module) -> float:
+        """
+        Evaluate one batch.
+        :param batch: The batch to be evaluated.
+        :param criterion: The criterion to be used.
+        :return: The loss.
+        """
         pass
 
     def fit(
@@ -81,9 +107,19 @@ class ModelBase(nn.Module, ABC):
 
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
+        """
+        Forward pass.
+        :param args: The arguments.
+        :param kwargs: The keyword arguments.
+        :return: The output.
+        """
         pass
 
     @classmethod
     @abstractmethod
     def build_from_config(cls) -> "ModelBase":
+        """
+        Build the model from the config.
+        :return: The model.
+        """
         pass
