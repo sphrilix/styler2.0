@@ -122,7 +122,6 @@ def _load_vocab_to_dict_int_str(raw_vocab: Any) -> bidict[int, str]:
 def train(model: Models, project_dir: Path, epochs: int) -> None:
     """
     Train the given model.
-    :param device: Device on which the model should be run.
     :param model: The given model.
     :param project_dir: Project dir with the data.
     :param epochs: Count epochs.
