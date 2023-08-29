@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any
 
 import javalang
+from javalang.parser import JavaSyntaxError
 from javalang.tree import MethodDeclaration
 
 from src.styler2_0.main import setup_logging
@@ -43,14 +44,20 @@ def _extract_methods_from_dir(input_dir: str, output_dir: str) -> None:
         )
         return
 
-    # Iterate over each file in the input directory
-    for file in os.listdir(input_dir):
-        file = os.path.join(input_dir, file)
-        # Check if the file is a file and if it has the correct file type
-        if os.path.isfile(file) and file.endswith(".java"):
-            _extract_methods_from_file(file, output_dir)
+    # Iterate over each file_or_dir in the input directory
+    for file_or_dir in os.listdir(input_dir):
+        file_or_dir = os.path.join(input_dir, file_or_dir)
+        # Check if the file_or_dir is a file_or_dir
+        if os.path.isfile(file_or_dir):
+            # Check if the file_or_dir is a java file_or_dir
+            if file_or_dir.endswith(".java"):
+                _extract_methods_from_file(file_or_dir, output_dir)
+            else:
+                logging.warning("File %s is not a java file_or_dir.", file_or_dir)
         else:
-            logging.warning("File %s is not a java file.", file)
+            # Check if the file_or_dir is a directory
+            if os.path.isdir(file_or_dir):
+                _extract_methods_from_dir(file_or_dir, output_dir)
 
 
 def _extract_methods_from_file(
@@ -123,6 +130,10 @@ def _iterate_methods(file: str) -> dict[str, str]:
     lex = None
     try:
         parse_tree = javalang.parse.parse(code_text)
+    except JavaSyntaxError as e:
+        logging.warning("Could not parse file %s: %s at %s", file, e.description, e.at)
+        logging.warning(e)
+        return {}
     except Exception as e:
         logging.warning("Could not parse file %s.", file)
         logging.warning(e)
@@ -289,9 +300,13 @@ def main():
     """
     Extracts java methods from their classes and stores each in a separate file.
     """
+
+    # Create the output directory if it does not exist
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     # Setup logging
     log_file = os.path.join(OUTPUT_DIR, "method_extractor.log")
-    setup_logging(log_file)
+    setup_logging(log_file, overwrite=True)
 
     # Don't allow COMMENTS_REQUIRED to be True if INCLUDE_METHOD_COMMENTS is False
     if COMMENTS_REQUIRED and not INCLUDE_METHOD_COMMENTS:
