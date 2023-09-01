@@ -127,6 +127,10 @@ def train(model: Models, project_dir: Path, epochs: int) -> None:
     :param epochs: Count epochs.
     :return:
     """
+
+    # TODO:
+    #    - Batch sizes as cl args
+    #    - Criterion and optimizer from config
     model = model.value.build_from_config()
     src_vocab, trg_vocab = _load_vocabs(project_dir)
     train_data, val_data = _load_train_and_val_data(
