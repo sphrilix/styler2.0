@@ -66,31 +66,18 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     save = parsed_args.save
     source = parsed_args.source
     config = parsed_args.config
-
-    os.makedirs(save, exist_ok=True)
+    version = parsed_args.version
 
     if not config:
         config = find_checkstyle_config(source)
-
     copyfile(config, save / Path("checkstyle.xml"))
 
-    config = save / Path("checkstyle.xml")
-
-    version = parsed_args.version
     if not version:
-        try:
-            version = get_checkstyle_version_of_project(source)
-        except AttributeError:
-            version = find_version_by_trying(config, source)
+        version = _get_checkstyle_version(source, config)
 
-    checkstyle_report = run_checkstyle_on_dir(source, version, config)
+    os.makedirs(save, exist_ok=True)
 
-    non_violated_files = (
-        stream(list(checkstyle_report))
-        .filter(lambda report: not report.violations)
-        .map(lambda report: report.path)
-        .to_set()
-    )
+    non_violated_files = _extract_non_violated_files(save, source, config, version)
 
     non_violated_dir = save / Path("non_violated/")
     os.makedirs(non_violated_dir, exist_ok=True)
@@ -105,6 +92,25 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     generate_n_violations(
         n, protocol, non_violated_dir, config, version, violations_dir
     )
+
+
+def _extract_non_violated_files(
+    save: Path, source: Path, config: Path, version: str
+) -> set[Path]:
+    checkstyle_report = run_checkstyle_on_dir(source, version, config)
+    return set(
+        stream(list(checkstyle_report))
+        .filter(lambda report: not report.violations)
+        .map(lambda report: report.path)
+        .to_set()
+    )
+
+
+def _get_checkstyle_version(input_dir: Path, config: Path) -> str:
+    try:
+        return get_checkstyle_version_of_project(input_dir)
+    except AttributeError:
+        return find_version_by_trying(config, input_dir)
 
 
 def _set_up_arg_parser() -> ArgumentParser:
