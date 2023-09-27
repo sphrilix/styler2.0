@@ -26,12 +26,16 @@ class MavenException(Exception):
     """
 
 
-# TODO: return the pom from root directory
-def _find_pom_xml(project_dir: Path) -> Path:
-    for subdir, _, files in os.walk(project_dir):
-        if POM_XML in files:
-            return Path(os.path.join(subdir, POM_XML))
-    raise MavenException(f"No {POM_XML} detected in project.")
+def _find_root_pom_xml(project_dir: Path) -> Path:
+    pom_files = [
+        Path(os.path.join(subdir, POM_XML))
+        for subdir, _, files in os.walk(project_dir)
+        if POM_XML in files
+    ]
+    sorted_pom_files = sorted(pom_files, key=lambda x: len(x.parts))
+    if not sorted_pom_files:
+        raise MavenException(f"No {POM_XML} found in {project_dir}.")
+    return sorted_pom_files[0]
 
 
 def _get_checkstyle_version_from_pom(pom: Path) -> str:
@@ -81,7 +85,7 @@ def get_checkstyle_version_of_project(project_dir: Path) -> str:
     :param project_dir: Directory of the project.
     :return: Return the checkstyle version.
     """
-    pom = _find_pom_xml(project_dir)
+    pom = _find_root_pom_xml(project_dir)
     return _get_checkstyle_version_from_pom(pom)
 
 
