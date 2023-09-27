@@ -235,6 +235,7 @@ def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleFileRepor
     root = Xml.fromstring(report)
     return frozenset(
         stream(list(root))
+        .filter(lambda file: file.attrib["name"].endswith(".java"))
         .map(
             lambda file: CheckstyleFileReport(
                 Path(file.attrib["name"]), _parse_violations(list(file))
