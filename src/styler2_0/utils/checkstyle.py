@@ -18,6 +18,8 @@ AVAILABLE_VERSIONS = [
     for file in os.listdir(CHECKSTYLE_DIR)
     if file.startswith("checkstyle-")
 ]
+
+# Checkstyle command to execute test resource files.
 CHECKSTYLE_RUN_CMD = (
     "java -jar {} -f xml -c {} {} "
     "--exclude-regexp .*/test/.* "
@@ -99,7 +101,7 @@ class Violation:
 
 
 @dataclass(eq=True, frozen=True)
-class CheckstyleReport:
+class CheckstyleFileReport:
     """
     Checkstyle report for a file.
     """
@@ -118,7 +120,7 @@ def find_checkstyle_config(directory: Path) -> Path:
 
 def run_checkstyle_on_dir(
     directory: Path, version: str, config: Path = None
-) -> frozenset[CheckstyleReport]:
+) -> frozenset[CheckstyleFileReport]:
     """
     Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
     :param config: The given config file.
@@ -140,7 +142,9 @@ def run_checkstyle_on_dir(
         return _parse_checkstyle_xml_report(output)
 
 
-def run_checkstyle_on_str(code: str, version: str, config: Path) -> CheckstyleReport:
+def run_checkstyle_on_str(
+    code: str, version: str, config: Path
+) -> CheckstyleFileReport:
     """
     Runs checkstyle on the given code snippet.
     :param code: The given snippet.
@@ -214,12 +218,12 @@ def _build_path_to_checkstyle_jar(version: str) -> Path:
     return Path(CHECKSTYLE_DIR) / CHECKSTYLE_JAR_NAME.format(version)
 
 
-def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleReport]:
+def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleFileReport]:
     root = Xml.fromstring(report)
     return frozenset(
         stream(list(root))
         .map(
-            lambda file: CheckstyleReport(
+            lambda file: CheckstyleFileReport(
                 Path(file.attrib["name"]), _parse_violations(list(file))
             )
         )

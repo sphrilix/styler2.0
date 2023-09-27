@@ -4,7 +4,7 @@ from pathlib import Path
 
 from streamerate import stream
 
-from src.styler2_0.utils.checkstyle import CheckstyleReport, Violation
+from src.styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
 from src.styler2_0.utils.java import Lexeme, lex_java
 
 #######################################################################################
@@ -236,7 +236,7 @@ class ProcessedSourceFile:
         self,
         file_name: Path | None,
         tokens: list[Token],
-        report: CheckstyleReport = None,
+        report: CheckstyleFileReport = None,
     ) -> None:
         self.file_name = file_name
         self.tokens = tokens
@@ -274,7 +274,7 @@ class ProcessedSourceFile:
     def __repr__(self) -> str:
         return self.tokenized_str()
 
-    def _insert_checkstyle_report(self, report: CheckstyleReport) -> None:
+    def _insert_checkstyle_report(self, report: CheckstyleFileReport) -> None:
         assert (
             report.path == self.file_name or self.file_name is None
         ), "Report and source file path must match."
@@ -484,7 +484,7 @@ def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
 
 
 def tokenize_with_reports(
-    reports: frozenset[CheckstyleReport],
+    reports: frozenset[CheckstyleFileReport],
 ) -> list[ProcessedSourceFile]:
     """
     Tokenize a given checkstyle report.
