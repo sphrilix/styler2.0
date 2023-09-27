@@ -19,7 +19,7 @@ AVAILABLE_VERSIONS = [
     if file.startswith("checkstyle-")
 ]
 
-# Checkstyle command to execute test resource files.
+# Checkstyle command to execute without test resource files.
 CHECKSTYLE_RUN_CMD = (
     "java -jar {} -f xml -c {} {} "
     "--exclude-regexp .*/test/.* "

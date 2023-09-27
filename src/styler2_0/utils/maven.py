@@ -17,7 +17,7 @@ POM_XML = "pom.xml"
 STANDARD_NAMESPACE = "http://maven.apache.org/POM/4.0.0"
 CHECKSTYLE_PLUGIN_ARTIFACT_ID = "maven-checkstyle-plugin"
 CHECKSTYLE_ARTIFACT_ID = "checkstyle"
-DEPENDENCY_REGEX = re.compile(r"\$\{[^}]+}")
+DEPENDENCY_REGEX = re.compile(r"\${[^}]+}")
 
 
 class MavenException(Exception):
@@ -26,6 +26,7 @@ class MavenException(Exception):
     """
 
 
+# TODO: return the pom from root directory
 def _find_pom_xml(project_dir: Path) -> Path:
     for subdir, _, files in os.walk(project_dir):
         if POM_XML in files:
