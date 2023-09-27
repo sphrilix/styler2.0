@@ -33,6 +33,9 @@ CHECKSTYLE_CONF_REG = re.compile(
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
 
+# DOTALL is needed to match multiline comments.
+XML_COMMENT_REG = re.compile(r"<!--.*?-->", re.DOTALL)
+
 
 class NotSuppoertedVersionException(Exception):
     """
@@ -212,6 +215,16 @@ def returns_n_violations(
         return _returns_n_violations
 
     return _n_violations_decorator
+
+
+def contains_config_variables(config: Path) -> bool:
+    """
+    Checks if the given config contains config variables.
+    :param config: The given config.
+    :return: Returns true if the config contains config variables.
+    """
+    config_content = config.read_text()
+    return "${" in re.sub(XML_COMMENT_REG, "", config_content)
 
 
 def _build_path_to_checkstyle_jar(version: str) -> Path:

@@ -11,13 +11,21 @@ from streamerate import stream
 from src.styler2_0.utils.checkstyle import (
     CheckstyleFileReport,
     ViolationType,
+    contains_config_variables,
     run_checkstyle_on_dir,
 )
+from styler2_0.utils.maven import pom_includes_checkstyle_suppression
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
 # TODO: How to handle suppression files?!
 #       Styler for example discards every commit that contains a suppression file.
+
+
+class NotProcessableGitRepositoryException(Exception):
+    """
+    Exception that is raised whenever a git repository is not processable.
+    """
 
 
 class GitContextManager:
@@ -41,18 +49,37 @@ class GitContextManager:
 
 @dataclass(eq=True)
 class MinedViolation:
+    """
+    Dataclass that represents a mined violation.
+    """
+
     violation_report: CheckstyleFileReport
     violations_hash: str
     fix_report: CheckstyleFileReport | None = field(default=None, init=False, repr=True)
     fix_hash: str | None = field(default=None, init=False, repr=True)
 
     def is_fixed(self) -> bool:
+        """
+        Returns whether the violation is fixed or not.
+        :return: True if the violation is fixed, False otherwise.
+        """
         return self.fix_report is not None
 
 
 def process_git_repository(
     input_dir: Path, output_dir: Path, version: str, config: Path
 ) -> None:
+    """
+    Processes the git repository in the input directory and saves the mined violations
+    :param input_dir: The input directory of the git repository.
+    :param output_dir: The output directory where the mined violations are saved.
+    :param version: The checkstyle version that is used.
+    :param config: The checkstyle config file that is used.
+    """
+    if contains_config_variables(config):
+        raise NotProcessableGitRepositoryException(
+            f"Config file {config} contains variables!"
+        )
     with GitContextManager(input_dir) as git_repo:
         commits = _extract_commits_to_search(input_dir, config)
         violations = _mine_violations_and_fixes_from_commits(
@@ -98,6 +125,8 @@ def _mine_violations_and_fixes_from_commits(
         # TODO: check why the parse error is raised
         with suppress(ParseError):
             git_repo.checkout(commit.hash)
+            if pom_includes_checkstyle_suppression(input_dir):
+                continue
             checkstyle_reports = run_checkstyle_on_dir(input_dir, version, config)
             interesting_reports_of_commit = _filter_interesting_reports(
                 checkstyle_reports

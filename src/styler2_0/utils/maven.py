@@ -18,6 +18,7 @@ STANDARD_NAMESPACE = "http://maven.apache.org/POM/4.0.0"
 CHECKSTYLE_PLUGIN_ARTIFACT_ID = "maven-checkstyle-plugin"
 CHECKSTYLE_ARTIFACT_ID = "checkstyle"
 DEPENDENCY_REGEX = re.compile(r"\${[^}]+}")
+SUPPRESSION_LOCATION = "suppressionsLocation"
 
 
 class MavenException(Exception):
@@ -87,6 +88,17 @@ def get_checkstyle_version_of_project(project_dir: Path) -> str:
     """
     pom = _find_root_pom_xml(project_dir)
     return _get_checkstyle_version_from_pom(pom)
+
+
+def pom_includes_checkstyle_suppression(project_dir: Path) -> bool:
+    """
+    Returns whether the pom includes checkstyle suppressions.
+    :param project_dir: Directory of the project.
+    :return: Return whether the pom includes checkstyle suppressions.
+    """
+    pom = _find_root_pom_xml(project_dir)
+    pom_content = pom.read_text()
+    return SUPPRESSION_LOCATION in pom_content
 
 
 def _parse_checkstyle_version_from_variable(
