@@ -18,6 +18,7 @@ tqdm = "^4.65.0"
 torch = "^2.0.1"
 bidict = "^0.22.1"
 pydriller = "^2.5.1"
+chardet = "^5.2.0"
 
 
 [tool.poetry.group.dev.dependencies]

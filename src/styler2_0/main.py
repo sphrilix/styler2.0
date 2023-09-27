@@ -19,6 +19,7 @@ from src.styler2_0.utils.checkstyle import (
     find_version_by_trying,
     run_checkstyle_on_dir,
 )
+from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
@@ -34,6 +35,7 @@ class Tasks(Enum):
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
     ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
     PREPROCESSING = "PREPROCESSING"
+    MINE_VIOLATIONS = "MINE_VIOLATIONS"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -55,6 +57,8 @@ def main() -> int:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
             preprocessing(parsed_args.violation_dir, parsed_args.splits)
+        case Tasks.MINE_VIOLATIONS:
+            _run_violation_mining(parsed_args.repo, parsed_args.save)
         case _:
             return 1
     return 0
@@ -113,12 +117,19 @@ def _get_checkstyle_version(input_dir: Path, config: Path) -> str:
         return find_version_by_trying(config, input_dir)
 
 
+def _run_violation_mining(repo_dir: Path, save: Path) -> None:
+    config = find_checkstyle_config(repo_dir)
+    version = _get_checkstyle_version(repo_dir, config)
+    process_git_repository(repo_dir, save, version, config)
+
+
 def _set_up_arg_parser() -> ArgumentParser:
     arg_parser = ArgumentParser()
     sub_parser = arg_parser.add_subparsers(dest="command", required=True)
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
     preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
+    mine_violations_sub_parser = sub_parser.add_parser(str(Tasks.MINE_VIOLATIONS))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -142,6 +153,10 @@ def _set_up_arg_parser() -> ArgumentParser:
     preprocessing_sub_parser.add_argument(
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
+
+    # Set up arguments for mining violations
+    mine_violations_sub_parser.add_argument("--repo", type=Path, required=True)
+    mine_violations_sub_parser.add_argument("--save", type=Path, required=True)
 
     return arg_parser
 

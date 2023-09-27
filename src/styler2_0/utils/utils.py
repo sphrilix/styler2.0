@@ -6,6 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TypeVar
 
+from chardet import detect
+
 T = TypeVar("T")
 E = TypeVar("E", bound=Enum)
 
@@ -124,15 +126,24 @@ def save_content_to_file(file: Path, content: str) -> None:
         file_stream.write(content)
 
 
-def read_content_of_file(file: Path, encoding: str = "utf-8") -> str:
+def read_content_of_file(file: Path, encoding: str = None) -> str:
     """
     Read the content of a file to str.
     :param file: The given file.
     :param encoding: The given encoding.
     :return: Returns the file content as str.
     """
+    if not encoding:
+        encoding = _get_encoding_type(file)
+
     with open(file, encoding=encoding) as file_stream:
         return file_stream.read()
+
+
+def _get_encoding_type(file: Path) -> str:
+    with open(file, "rb") as f:
+        rawdata = f.read()
+    return detect(rawdata)["encoding"]
 
 
 def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:

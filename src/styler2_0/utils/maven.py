@@ -3,6 +3,8 @@ import re
 import xml.etree.ElementTree as Xml
 from pathlib import Path
 
+from styler2_0.utils.utils import read_content_of_file
+
 MAVEN_PLUGIN_CHECKSTYLE_VERSION = {
     "3.3.0": "9.3.0",
     "3.2.2": "9.3.0",
@@ -97,7 +99,7 @@ def pom_includes_checkstyle_suppression(project_dir: Path) -> bool:
     :return: Return whether the pom includes checkstyle suppressions.
     """
     pom = _find_root_pom_xml(project_dir)
-    pom_content = pom.read_text()
+    pom_content = read_content_of_file(pom)
     return SUPPRESSION_LOCATION in pom_content
 
 

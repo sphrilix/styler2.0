@@ -9,7 +9,7 @@ from pathlib import Path
 
 from streamerate import stream
 
-from src.styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
@@ -223,7 +223,7 @@ def contains_config_variables(config: Path) -> bool:
     :param config: The given config.
     :return: Returns true if the config contains config variables.
     """
-    config_content = config.read_text()
+    config_content = read_content_of_file(config)
     return "${" in re.sub(XML_COMMENT_REG, "", config_content)
 
 
