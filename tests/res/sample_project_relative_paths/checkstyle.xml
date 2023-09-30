@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Puppy Crawl//DTD Check Configuration 1.3//EN"
+        "http://checkstyle.sourceforge.net/dtds/configuration_1_3.dtd">
+
+<module name="Checker">
+    <property name="charset" value="no-relative-path"/>
+
+    <property name="charset2" value="/relative-path.txt"/>
+
+    <module name="Header">
+        <property name="headerFile" value="no-relative-path"/>
+    </module>
+
+    <module name="Header2">
+        <property name="headerFile2" value="/relative-path.txt"/>
+    </module>
+
+    <module name="FileTabCharacter">
+        <module name="JavadocMethod">
+            <property name="severity" value="no-relative-path" />
+        </module>
+    </module>
+
+    <module name="FileTabCharacter2">
+        <module name="JavadocMethod2">
+            <property name="severity2" value="/relative-path.txt" />
+        </module>
+    </module>
+
+</module>

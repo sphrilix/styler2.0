@@ -113,24 +113,29 @@ def retry(
     return _retry_decorator
 
 
-def save_content_to_file(file: Path, content: str) -> None:
+def save_content_to_file(file: Path, content: str, mode: str = "w") -> None:
     """
     Saves the given content to the specified file.
     :param file: The given file.
     :param content: The given content.
+    :param mode: The given mode.
     :return: None
     """
-    with open(file, "w", encoding="utf-8") as file_stream:
+    with open(file, mode, encoding="utf-8") as file_stream:
         file_stream.write(content)
 
 
-def read_content_of_file(file: Path, encoding: str = "utf-8") -> str:
+def read_content_of_file(file: Path, encoding: str = None) -> str:
     """
     Read the content of a file to str.
     :param file: The given file.
-    :param encoding: The given encoding.
+    :param encoding: The given encoding. If None, the default encoding is used.
     :return: Returns the file content as str.
     """
+    if encoding is None:
+        with open(file) as file_stream:
+            return file_stream.read()
+
     with open(file, encoding=encoding) as file_stream:
         return file_stream.read()
 

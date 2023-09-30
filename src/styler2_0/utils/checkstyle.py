@@ -6,10 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from shutil import copyfile
 
 from streamerate import stream
 
-from src.styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
@@ -264,3 +265,47 @@ def find_version_by_trying(config: Path, project_dir: Path) -> str:
         except Xml.ParseError:
             continue
     raise NotSuppoertedVersionException("No suitable checkstyle version found.")
+
+
+def _remove_relative_paths(config_path: Path, save_path: Path) -> None:
+    """
+    Removes all relative paths from the given checkstyle config file and saves
+    it to the given save path. Thereby all elements with a relative path
+    (and their children/parents) are removed from the tree root.
+
+    :param config_path: The path to the checkstyle config file.
+    :param save_path: The path to save the modified checkstyle config file.
+    """
+    # Create a new XML file with the same name as the original in the save path
+    copied_file = copyfile(config_path, save_path)
+
+    # Load the XML file
+    tree = Xml.parse(config_path)
+    root = tree.getroot()
+
+    # Create a dictionary mapping each element to its parent
+    parent_map = {c: p for p in root.iter() for c in p}
+
+    # Remove all relative paths (starting with "/" followed by a letter)
+    for property_element in root.findall(".//property"):
+        if property_element is not None and re.match(
+            r"/[A-Za-z]", property_element.get("value")
+        ):
+            # Remove the element and all children/parents from the tree root
+            while property_element not in list(root):
+                property_element = parent_map[property_element]
+            root.remove(property_element)
+
+    # Create empty file
+    save_content_to_file(copied_file, "", mode="w")
+
+    # Write everything until "<module" to the new file
+    old_config = read_content_of_file(config_path)
+    for line in old_config.splitlines():
+        if line.strip().startswith("<module"):
+            break
+        save_content_to_file(copied_file, line + "\n", mode="a")
+
+    # Append the root and all children to the new file
+    xml_string = Xml.tostring(root, encoding="unicode")
+    save_content_to_file(copied_file, xml_string, mode="a")
