@@ -19,6 +19,7 @@ torch = "^2.0.1"
 bidict = "^0.22.1"
 numpy = "^1.25.0"
 pyyaml = "^6.0.1"
+pytorch-beam-search = "^1.2.2"
 
 
 [tool.poetry.group.dev.dependencies]

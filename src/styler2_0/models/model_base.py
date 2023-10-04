@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import torch
+from bidict import bidict
 from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
@@ -17,9 +18,17 @@ class ModelBase(nn.Module, ABC):
     CURR_DIR = Path(os.path.dirname(os.path.relpath(__file__)))
     CONFIGS_PATH = CURR_DIR / Path("../../../config/models/")
 
-    def __init__(self, input_length: int, output_length: int) -> None:
+    def __init__(
+        self,
+        input_length: int,
+        output_length: int,
+        src_vocab: bidict[int, str],
+        trg_vocab: bidict[int, str],
+    ) -> None:
         self.input_length = input_length
         self.output_length = output_length
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
         super().__init__()
 
     def _fit_one_epoch(

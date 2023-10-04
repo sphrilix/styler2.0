@@ -7,3 +7,5 @@ n_layers: 1
 enc_dropout: 0.5
 dec_dropout: 0.5
 device: "cpu"
+src_vocab: "/Users/maxij/PycharmProjects/styler2.0/data/tmp/model_data/three_gram/src_vocab.txt"
+trg_vocab: "/Users/maxij/PycharmProjects/styler2.0/data/tmp/model_data/three_gram/trg_vocab.txt"

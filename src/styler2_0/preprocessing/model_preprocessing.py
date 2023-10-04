@@ -194,3 +194,27 @@ def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
         src_vocab,
         trg_vocab,
     )
+
+
+def load_vocabs(src_vocab: Path, trg_vocab: Path) -> (bidict, bidict):
+    """
+    Load the vocabularies from the given paths.
+    :param src_vocab:
+    :param trg_vocab:
+    :return:
+    """
+    src_vocab = _load_vocab_from_path(src_vocab)
+    trg_vocab = _load_vocab_from_path(trg_vocab)
+    return src_vocab, trg_vocab
+
+
+def _load_vocab_from_path(vocab_path: Path) -> bidict[int, str]:
+    """
+    Load the vocabulary from the given path.
+    :param vocab_path: The given path.
+    :return: Return the vocabulary.
+    """
+    raw_json = read_content_of_file(vocab_path)
+    vocab = json.loads(raw_json)
+    vocab = {int(k): v for k, v in vocab.items()}
+    return bidict(vocab)

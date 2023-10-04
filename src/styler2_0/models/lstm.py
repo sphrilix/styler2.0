@@ -2,11 +2,13 @@ import random
 from pathlib import Path
 
 import torch
+from bidict import bidict
 from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.types import Device
 
 from src.styler2_0.models.model_base import ModelBase
+from styler2_0.preprocessing.model_preprocessing import load_vocabs
 from styler2_0.utils.utils import load_yaml_file
 
 
@@ -147,6 +149,9 @@ class LSTM(ModelBase):
         lstm_params = load_yaml_file(cls.CONFIGS_PATH / cls.CONFIG_FILE)
         input_length = lstm_params["input_length"]
         output_length = lstm_params["output_length"]
+        src_vocab, trg_vocab = load_vocabs(
+            lstm_params["src_vocab"], lstm_params["trg_vocab"]
+        )
         encoder = LSTMEncoder(
             input_length,
             lstm_params["enc_emb_dim"],
@@ -155,14 +160,20 @@ class LSTM(ModelBase):
             lstm_params["enc_dropout"],
         )
         decoder = LSTMDecoder(
-            output_length,
+            len(trg_vocab),
             lstm_params["dec_emb_dim"],
             lstm_params["hidden_dim"],
             lstm_params["n_layers"],
             lstm_params["dec_dropout"],
         )
         return LSTM(
-            encoder, decoder, lstm_params["device"], input_length, output_length
+            encoder,
+            decoder,
+            lstm_params["device"],
+            input_length,
+            output_length,
+            src_vocab,
+            trg_vocab,
         )
 
     def __init__(
@@ -172,6 +183,8 @@ class LSTM(ModelBase):
         device: Device,
         input_length: int,
         output_length: int,
+        src_vocab: bidict[int, str],
+        trg_vocab: bidict[int, str],
     ) -> None:
         """
         Initialize the model.
@@ -181,7 +194,7 @@ class LSTM(ModelBase):
         :param input_length: input length
         :param output_length: output length
         """
-        super().__init__(input_length, output_length)
+        super().__init__(input_length, output_length, src_vocab, trg_vocab)
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
