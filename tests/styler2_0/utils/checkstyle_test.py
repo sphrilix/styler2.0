@@ -17,9 +17,9 @@ CHECKSTYLE_CONFIG = os.path.join(SAMPLE_PROJECT, "checkstyle.xml")
 
 def test_run_checkstyle_on_dir() -> None:
     report = run_checkstyle_on_dir(Path(SAMPLE_PROJECT), "8.0")
-    assert len(report) == 4
+    assert len(report) == 2
     for file_report in report:
-        if "non" in file_report.path.name or file_report.path.name.endswith("pom.xml"):
+        if "non" in file_report.path.name:
             assert len(file_report.violations) == 0
         else:
             assert len(file_report.violations) > 0

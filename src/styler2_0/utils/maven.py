@@ -3,6 +3,8 @@ import re
 import xml.etree.ElementTree as Xml
 from pathlib import Path
 
+from styler2_0.utils.utils import read_content_of_file
+
 MAVEN_PLUGIN_CHECKSTYLE_VERSION = {
     "3.3.0": "9.3.0",
     "3.2.2": "9.3.0",
@@ -17,7 +19,8 @@ POM_XML = "pom.xml"
 STANDARD_NAMESPACE = "http://maven.apache.org/POM/4.0.0"
 CHECKSTYLE_PLUGIN_ARTIFACT_ID = "maven-checkstyle-plugin"
 CHECKSTYLE_ARTIFACT_ID = "checkstyle"
-DEPENDENCY_REGEX = re.compile(r"\$\{[^}]+}")
+DEPENDENCY_REGEX = re.compile(r"\${[^}]+}")
+SUPPRESSION_LOCATION = "suppressionsLocation"
 
 
 class MavenException(Exception):
@@ -26,11 +29,16 @@ class MavenException(Exception):
     """
 
 
-def _find_pom_xml(project_dir: Path) -> Path:
-    for subdir, _, files in os.walk(project_dir):
-        if POM_XML in files:
-            return Path(os.path.join(subdir, POM_XML))
-    raise MavenException(f"No {POM_XML} detected in project.")
+def _find_root_pom_xml(project_dir: Path) -> Path:
+    pom_files = [
+        Path(os.path.join(subdir, POM_XML))
+        for subdir, _, files in os.walk(project_dir)
+        if POM_XML in files
+    ]
+    sorted_pom_files = sorted(pom_files, key=lambda x: len(x.parts))
+    if not sorted_pom_files:
+        raise MavenException(f"No {POM_XML} found in {project_dir}.")
+    return sorted_pom_files[0]
 
 
 def _get_checkstyle_version_from_pom(pom: Path) -> str:
@@ -80,8 +88,19 @@ def get_checkstyle_version_of_project(project_dir: Path) -> str:
     :param project_dir: Directory of the project.
     :return: Return the checkstyle version.
     """
-    pom = _find_pom_xml(project_dir)
+    pom = _find_root_pom_xml(project_dir)
     return _get_checkstyle_version_from_pom(pom)
+
+
+def pom_includes_checkstyle_suppression(project_dir: Path) -> bool:
+    """
+    Returns whether the pom includes checkstyle suppressions.
+    :param project_dir: Directory of the project.
+    :return: Return whether the pom includes checkstyle suppressions.
+    """
+    pom = _find_root_pom_xml(project_dir)
+    pom_content = read_content_of_file(pom)
+    return SUPPRESSION_LOCATION in pom_content
 
 
 def _parse_checkstyle_version_from_variable(

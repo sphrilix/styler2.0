@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from src.styler2_0.utils.checkstyle import (
-    CheckstyleReport,
+    CheckstyleFileReport,
     Violation,
     ViolationType,
     run_checkstyle_on_str,
@@ -50,7 +50,7 @@ def test_ending_position() -> None:
 
 def test_tokenizing_with_report_begin() -> None:
     violation = [Violation(ViolationType.FILE_TAB_CHARACTER, 1, 0)]
-    report = CheckstyleReport(Path("."), frozenset(violation))
+    report = CheckstyleFileReport(Path("."), frozenset(violation))
     tokens = tokenize_java_code("class Main {}")
     source = ProcessedSourceFile(Path("."), tokens, report)
     assert source.tokens[0].text == "FileTabCharacter"
@@ -62,7 +62,7 @@ def test_tokenizing_with_report_end() -> None:
     violation = [
         Violation(ViolationType.FILE_TAB_CHARACTER, tokens[-1].line, tokens[-1].column)
     ]
-    report = CheckstyleReport(Path("."), frozenset(violation))
+    report = CheckstyleFileReport(Path("."), frozenset(violation))
     source = ProcessedSourceFile(Path("."), tokens, report)
     assert source.tokens[4].text == "FileTabCharacter"
     assert source.tokens[-1].text == "FileTabCharacter"
@@ -71,7 +71,7 @@ def test_tokenizing_with_report_end() -> None:
 def test_tokenizing_with_line_violation() -> None:
     tokens = tokenize_java_code("class Main {}")
     violation = [Violation(ViolationType.REGEXP_SINGLE_LINE, 1, None)]
-    report = CheckstyleReport(Path("."), frozenset(violation))
+    report = CheckstyleFileReport(Path("."), frozenset(violation))
     source = ProcessedSourceFile(Path("."), tokens, report)
     assert source.tokens[0].text == ViolationType.REGEXP_SINGLE_LINE.value
     assert source.tokens[-1].text == ViolationType.REGEXP_SINGLE_LINE.value
@@ -86,7 +86,7 @@ def test_tokenizing_with_line_violation_in_between() -> None:
         "}\n"
     )
     violation = [Violation(ViolationType.REGEXP_SINGLE_LINE, 2, None)]
-    report = CheckstyleReport(Path("."), frozenset(violation))
+    report = CheckstyleFileReport(Path("."), frozenset(violation))
     source = ProcessedSourceFile(Path("."), tokens, report)
     assert source.tokens[4].text == ViolationType.REGEXP_SINGLE_LINE.value
     assert source.tokens[-2].text == ViolationType.REGEXP_SINGLE_LINE.value
