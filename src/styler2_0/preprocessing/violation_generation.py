@@ -508,7 +508,7 @@ class Metadata:
             .filter(lambda file: len(file.report.violations) > 0)
             .next()
         )
-        self.non_violated_str, self.violated_str = self.__filter_relevant_tokens(
+        self.non_violated_str, self.violated_str = filter_relevant_tokens(
             non_violated, violated
         )
 
@@ -564,3 +564,24 @@ def generate_n_violations(
     protocol(
         n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
     ).generate_violations()
+
+
+def filter_relevant_tokens(
+    non_violated: ProcessedSourceFile, violated: ProcessedSourceFile, context: int = 2
+) -> (str, str):
+    assert len(violated.checkstyle_tokens) == 2
+    violated_tokens = next(violated.tokens_between_violations())
+    violated_tokens_wo_checkstyle = violated_tokens[1:-1]
+    start_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[1])
+    end_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[-2]) + 1
+    non_violated_tokens = non_violated.tokens[
+        start_idx_non_violated:end_idx_non_violated
+    ]
+    return (
+        " ".join(
+            stream(non_violated_tokens)
+            .filter(lambda t: isinstance(t, Whitespace))
+            .map(str)
+        ),
+        " ".join(stream(next(violated.violations_with_ctx())).map(str)),
+    )

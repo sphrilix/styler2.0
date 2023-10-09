@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Generator
 from pathlib import Path
 
 from streamerate import stream
@@ -250,6 +251,7 @@ class ProcessedSourceFile:
         self.report = report
         self.checkstyle_tokens = []
 
+        # TODO: check if this is really needed, I don't think so
         # insert deltas of indentation after linebreak
         self._insert_deltas_on_linebreaks()
 
@@ -270,6 +272,35 @@ class ProcessedSourceFile:
         :return: The processed string representation of the Java file.
         """
         return f"{' '.join(map(str, self.tokens))}\n"
+
+    def tokens_between_violations(self) -> Generator[list[list[Token]], None, None]:
+        """
+        Get all tokens between two violation tags.
+        :return: Returns a generator which yields all tokens between two violation tags.
+        """
+        violation_tag_pairs = zip(
+            self.checkstyle_tokens[::2], self.checkstyle_tokens[1::2], strict=True
+        )
+        for violation_tag_pair in violation_tag_pairs:
+            start, end = violation_tag_pair
+            yield self.tokens[self.tokens.index(start) : self.tokens.index(end) + 1]
+
+    def violations_with_ctx(
+        self, context: int = 2
+    ) -> Generator[list[Token], None, None]:
+        """
+        Get all tokens within a specified around a violation.
+        :param context: The specified line context.
+        :return: Returns the tokens within the specified context around a violation.
+        """
+        for violated_tokens in self.tokens_between_violations():
+            ctx_start_line = max(1, violated_tokens[0].line - context)
+            ctx_end_line = min(self.tokens[-1].line, violated_tokens[-1].line + context)
+            yield list(
+                stream(self.tokens).filter(
+                    lambda t, s=ctx_start_line, e=ctx_end_line: s <= t.line <= e
+                )
+            )
 
     def __repr__(self) -> str:
         return self.tokenized_str()
@@ -462,6 +493,7 @@ def tokenize_java_code(code: str) -> list[Token]:
     )
 
 
+# TODO: Use utility function to read files
 def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
     """
     Parses the Java files form a given directory into a list of ProcessedSourceFile.
