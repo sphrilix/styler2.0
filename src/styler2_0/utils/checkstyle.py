@@ -9,7 +9,7 @@ from pathlib import Path
 
 from streamerate import stream
 
-from src.styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 CHECKSTYLE_DIR = os.path.join(CURR_DIR, "../../../checkstyle")
@@ -18,6 +18,8 @@ AVAILABLE_VERSIONS = [
     for file in os.listdir(CHECKSTYLE_DIR)
     if file.startswith("checkstyle-")
 ]
+
+# Checkstyle command to execute without test resource files.
 CHECKSTYLE_RUN_CMD = (
     "java -jar {} -f xml -c {} {} "
     "--exclude-regexp .*/test/.* "
@@ -30,6 +32,9 @@ CHECKSTYLE_CONF_REG = re.compile(
 )
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
+
+# DOTALL is needed to match multiline comments.
+XML_COMMENT_REG = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 class NotSuppoertedVersionException(Exception):
@@ -99,7 +104,7 @@ class Violation:
 
 
 @dataclass(eq=True, frozen=True)
-class CheckstyleReport:
+class CheckstyleFileReport:
     """
     Checkstyle report for a file.
     """
@@ -118,7 +123,7 @@ def find_checkstyle_config(directory: Path) -> Path:
 
 def run_checkstyle_on_dir(
     directory: Path, version: str, config: Path = None
-) -> frozenset[CheckstyleReport]:
+) -> frozenset[CheckstyleFileReport]:
     """
     Run checkstyle on the given directory. Returns a set of ChecksStyleFileReport.
     :param config: The given config file.
@@ -140,7 +145,9 @@ def run_checkstyle_on_dir(
         return _parse_checkstyle_xml_report(output)
 
 
-def run_checkstyle_on_str(code: str, version: str, config: Path) -> CheckstyleReport:
+def run_checkstyle_on_str(
+    code: str, version: str, config: Path
+) -> CheckstyleFileReport:
     """
     Runs checkstyle on the given code snippet.
     :param code: The given snippet.
@@ -210,16 +217,27 @@ def returns_n_violations(
     return _n_violations_decorator
 
 
+def contains_config_variables(config: Path) -> bool:
+    """
+    Checks if the given config contains config variables.
+    :param config: The given config.
+    :return: Returns true if the config contains config variables.
+    """
+    config_content = read_content_of_file(config)
+    return "${" in re.sub(XML_COMMENT_REG, "", config_content)
+
+
 def _build_path_to_checkstyle_jar(version: str) -> Path:
     return Path(CHECKSTYLE_DIR) / CHECKSTYLE_JAR_NAME.format(version)
 
 
-def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleReport]:
+def _parse_checkstyle_xml_report(report: bytes) -> frozenset[CheckstyleFileReport]:
     root = Xml.fromstring(report)
     return frozenset(
         stream(list(root))
+        .filter(lambda file: file.attrib["name"].endswith(".java"))
         .map(
-            lambda file: CheckstyleReport(
+            lambda file: CheckstyleFileReport(
                 Path(file.attrib["name"]), _parse_violations(list(file))
             )
         )

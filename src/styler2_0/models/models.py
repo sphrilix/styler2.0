@@ -139,3 +139,12 @@ def train(model: Models, project_dir: Path, epochs: int) -> None:
     criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.inv["<PAD>"])
     optimizer = Adam(model.parameters())
     model.fit(epochs, train_data, val_data, criterion, optimizer)
+    model.predict(
+        read_content_of_file(
+            Path(
+                "/Users/maxij/PycharmProjects/styler2.0/data/tmp/model_data/three_gram/train/1/VIOLATED_NoteItemTriageStatusComparator.java"
+            )
+        ),
+        Path("/Users/maxij/PycharmProjects/styler2.0/data/tmp/checkstyle.xml"),
+        "8.0",
+    )

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import yaml
+from chardet import detect
 from yaml import SafeLoader
 
 T = TypeVar("T")
@@ -134,8 +135,17 @@ def read_content_of_file(file: Path, encoding: str = "utf-8") -> str:
     :param encoding: The given encoding.
     :return: Returns the file content as str.
     """
+    if not encoding:
+        encoding = _get_encoding_type(file)
+
     with open(file, encoding=encoding) as file_stream:
         return file_stream.read()
+
+
+def _get_encoding_type(file: Path) -> str:
+    with open(file, "rb") as f:
+        rawdata = f.read()
+    return detect(rawdata)["encoding"]
 
 
 def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:
