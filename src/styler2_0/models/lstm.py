@@ -9,6 +9,13 @@ from torch.types import Device
 
 from src.styler2_0.models.model_base import ModelBase
 from styler2_0.preprocessing.model_preprocessing import load_vocabs
+
+# from styler2_0.utils.checkstyle import run_checkstyle_on_str
+# from styler2_0.utils.tokenize import (
+#     CheckstyleToken,
+#     ProcessedSourceFile,
+#     tokenize_java_code,
+# )
 from styler2_0.utils.utils import load_yaml_file
 
 
@@ -312,7 +319,7 @@ class LSTM(ModelBase):
         output_dim = output.shape[-1]
 
         output = output[1:].view(-1, output_dim)
-        trg = torch.flatten(trg[1:])  # .view(-1)
+        trg = torch.flatten(trg[1:]).view(-1)
 
         # trg = [(trg len - 1) * batch size]
         # output = [(trg len - 1) * batch size, output dim]
@@ -320,3 +327,43 @@ class LSTM(ModelBase):
         loss = criterion(output, trg)
 
         return loss.item()
+
+    # def predict(self, code: str, config: Path, version: str) -> str:
+    #     """
+    #     Predict the translation of a code.
+    #     :param version:
+    #     :param config:
+    #     :param code:
+    #     :return:
+    #     """
+    #     report = run_checkstyle_on_str(code, version, config)
+    #     assert len(report.violations) == 1, "Code contains too many violations!"
+    #
+    #     tokenized_code = tokenize_java_code(code)
+    #     processed_code = ProcessedSourceFile(None, tokenized_code, report)
+    #
+    #     inp_tokens = []
+    #     pick = False
+    #     for token in processed_code.tokens:
+    #         if isinstance(token, CheckstyleToken) and token.is_starting:
+    #             pick = True
+    #         elif isinstance(token, CheckstyleToken) and not token.is_starting:
+    #             pick = False
+    #         if pick:
+    #             inp_tokens.append(token)
+    #
+    #     inp_tokens = (
+    #         [self.src_vocab.inverse["<SOS>"]]
+    #         + list(map(lambda t: self.src_vocab.inverse[str(t)], inp_tokens))
+    #         + [self.src_vocab.inverse["<EOS>"]]
+    #     )
+    #     inp_tokens.extend(
+    #         [self.src_vocab.inverse["<PAD>"]] * (self.input_length - len(inp_tokens))
+    #     )
+    #
+    #     src = torch.tensor(inp_tokens).to(self.device)
+    #     trg = torch.zeros(self.output_length, 1, len(self.trg_vocab)).to(self.device)
+    #     with torch.no_grad():
+    #         output = self(src.T, trg.T, 0)  # turn off teacher forcing
+    #     output = output.argmax(2)
+    #     return " ".join(map(lambda i: self.trg_vocab[i], output))
