@@ -168,6 +168,13 @@ def _update_violation_with_fix(
     not_fixed_violations: list[MinedViolation],
     commit_hash: str,
 ) -> None:
+    """
+    Updates the violations with no fix, if the violation is fixed in the current commit
+    :param non_affected_files: The files with no violations
+    :param not_fixed_violations: The violations with no fix
+    :param commit_hash: The hash of the commit
+    :return:
+    """
     for violation in not_fixed_violations:
         for non_affected_file in non_affected_files:
             if violation.violation_report.path == non_affected_file.path:
@@ -179,6 +186,12 @@ def _get_new_reports(
     all_reports: set[CheckstyleFileReport],
     to_be_checked_reports: frozenset[CheckstyleFileReport],
 ) -> frozenset[CheckstyleFileReport]:
+    """
+    Returns the reports that are not already seen.
+    :param all_reports: All reports that are already seen.
+    :param to_be_checked_reports: Possible new reports.
+    :return: New reports.
+    """
     return frozenset(
         report for report in to_be_checked_reports if report not in all_reports
     )
@@ -214,6 +227,12 @@ def _filter_interesting_reports(
 
 
 def _is_config_modified(commit: Commit, config: Path) -> bool:
+    """
+    Checks if the checkstyle config file is modified in the commit.
+    :param commit: The commit to be checked.
+    :param config: The Path of the checkstyle config file.
+    :return: True if the config file is modified, False otherwise.
+    """
     return str(config.name) in (
         modified_file.filename for modified_file in commit.modified_files
     )
@@ -222,6 +241,13 @@ def _is_config_modified(commit: Commit, config: Path) -> bool:
 def _save_violations(
     commit_reports: list[MinedViolation], input_dir: Path, output_dir: Path
 ) -> None:
+    """
+    Saves the violations and fixes in the output_dir.
+    :param commit_reports: The mined violations.
+    :param input_dir: The input dir.
+    :param output_dir: The output dir.
+    :return:
+    """
     git_repo = Git(str(input_dir))
     for i, violation in enumerate(commit_reports):
         git_repo.checkout(violation.violations_hash)
