@@ -120,6 +120,13 @@ def _extract_non_violated_files(
 
 
 def _get_checkstyle_version(input_dir: Path, config: Path) -> str:
+    """
+    Tries to find the checkstyle version of the project.
+    If it fails, it tries to find the version by trying.
+    :param input_dir: The directory of the project.
+    :param config: The checkstyle config.
+    :return: Returns the checkstyle version.
+    """
     try:
         return get_checkstyle_version_of_project(input_dir)
     except AttributeError:
@@ -127,12 +134,22 @@ def _get_checkstyle_version(input_dir: Path, config: Path) -> str:
 
 
 def _run_violation_mining(repo_dir: Path, save: Path) -> None:
+    """
+    Runs the violation mining on the given repository.
+    :param repo_dir: The directory of the repository.
+    :param save: The directory where the results should be saved.
+    :return:
+    """
     config = find_checkstyle_config(repo_dir)
     version = _get_checkstyle_version(repo_dir, config)
     process_git_repository(repo_dir, save, version, config)
 
 
 def _set_up_arg_parser() -> ArgumentParser:
+    """
+    Sets up the argument parser.
+    :return: Returns the argument parser.
+    """
     arg_parser = ArgumentParser()
     sub_parser = arg_parser.add_subparsers(dest="command", required=True)
     generation = sub_parser.add_parser(str(Tasks.GENERATE_VIOLATIONS))
