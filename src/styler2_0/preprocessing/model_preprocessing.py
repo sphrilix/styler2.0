@@ -11,6 +11,7 @@ from streamerate import stream
 from src.styler2_0.preprocessing.violation_generation import Metadata
 from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
 
+VIOLATION_DIR = Path("violations/")
 TRAIN_PATH = Path("train/")
 VAL_PATH = Path("val/")
 TEST_PATH = Path("test/")
@@ -21,6 +22,7 @@ INPUT_TXT = Path("input.txt")
 GROUND_TRUTH_TXT = Path("ground_truth.txt")
 MODEL_DATA_PATH = Path("../../model_data")
 VOCAB_SPECIAL_TOKEN = ["<SOS>", "<EOS>", "<UNK>", "<PAD>"]
+MINED_VIOLATIONS = Path("mined_violations")
 
 
 def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
@@ -153,49 +155,55 @@ def _get_protocol_from_path(violation_dir: Path) -> Path:
     return Path(violation_dir.name)
 
 
-def preprocessing(violation_dir: Path, splits: (float, float, float)) -> None:
+def preprocessing(project_dir: Path, splits: (float, float, float)) -> None:
     """
     Build the input for the lstm model.
-    :param violation_dir: The directory containing the violations
+    :param project_dir: The directory created for each project.
     :param splits: Triple(train_percentile, val_percentile, test_percentile)
     :return:
     """
-    _build_splits(violation_dir, splits)
-    src_vocab, trg_vocab = _build_vocab(violation_dir)
+    violation_dir = project_dir / VIOLATION_DIR
+    protocol_dirs = [
+        violation_dir / Path(directory) for directory in os.listdir(violation_dir)
+    ]
+    for protocol_violation_dir in protocol_dirs:
+        _build_splits(protocol_violation_dir, splits)
+        src_vocab, trg_vocab = _build_vocab(protocol_violation_dir)
 
-    # Convert vocabs to bidict to be easier usable
-    src_vocab = bidict(src_vocab)
-    trg_vocab = bidict(trg_vocab)
+        # Convert vocabs to bidict to be easier usable
+        src_vocab = bidict(src_vocab)
+        trg_vocab = bidict(trg_vocab)
 
-    # Process train examples
-    _build_inputs_from_vocab(
-        violation_dir
-        / MODEL_DATA_PATH
-        / _get_protocol_from_path(violation_dir)
-        / TRAIN_PATH,
-        src_vocab,
-        trg_vocab,
-    )
+        # Process train examples
+        _build_inputs_from_vocab(
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / TRAIN_PATH,
+            src_vocab,
+            trg_vocab,
+        )
 
-    # Process val examples
-    _build_inputs_from_vocab(
-        violation_dir
-        / MODEL_DATA_PATH
-        / _get_protocol_from_path(violation_dir)
-        / VAL_PATH,
-        src_vocab,
-        trg_vocab,
-    )
+        # Process val examples
+        _build_inputs_from_vocab(
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / VAL_PATH,
+            src_vocab,
+            trg_vocab,
+        )
 
-    # Process test examples
-    _build_inputs_from_vocab(
-        violation_dir
-        / MODEL_DATA_PATH
-        / _get_protocol_from_path(violation_dir)
-        / TEST_PATH,
-        src_vocab,
-        trg_vocab,
-    )
+        if splits[2] > 0:
+            # Process test examples
+            _build_inputs_from_vocab(
+                violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(violation_dir)
+                / TEST_PATH,
+                src_vocab,
+                trg_vocab,
+            )
 
 
 def load_vocabs(src_vocab: Path, trg_vocab: Path) -> (bidict, bidict):

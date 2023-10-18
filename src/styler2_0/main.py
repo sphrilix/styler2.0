@@ -58,7 +58,7 @@ def main() -> int:
         case Tasks.ADAPT_THREE_GRAMS:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
-            preprocessing(parsed_args.violation_dir, parsed_args.splits)
+            preprocessing(parsed_args.project_dir, parsed_args.splits)
         case Tasks.MINE_VIOLATIONS:
             _run_violation_mining(parsed_args.repo, parsed_args.save)
         case Tasks.TRAIN:
@@ -176,7 +176,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     adapting_three_gram.add_argument("--out_file", type=Path, required=True)
 
     # Set up arguments for model preprocessing
-    preprocessing_sub_parser.add_argument("--violation_dir", type=Path, required=True)
+    preprocessing_sub_parser.add_argument("--project_dir", type=Path, required=True)
     preprocessing_sub_parser.add_argument(
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
