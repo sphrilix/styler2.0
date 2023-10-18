@@ -21,6 +21,7 @@ VAL_TRG = VAL_DATA / Path("ground_truth.txt")
 SRC_VOCAB_FILE = Path("src_vocab.txt")
 TRG_VOCAB_FILE = Path("trg_vocab.txt")
 CHECKPOINT_FOLDER = Path("checkpoints")
+BEST_MODEL = Path("best_model.pt")
 
 
 class Models(Enum):
@@ -102,11 +103,11 @@ def _load_vocabs(project_dir: Path) -> tuple[Vocabulary, Vocabulary]:
     )
 
 
-def train(model: Models, project_dir: Path, epochs: int) -> None:
+def train(model_type: Models, model_dir: Path, epochs: int) -> None:
     """
-    Train the given model.
-    :param model: The given model.
-    :param project_dir: Project dir with the data.
+    Train the given model on each protocol separately.
+    :param model_type: The given model.
+    :param model_dir: Project dir with the data.
     :param epochs: Count epochs.
     :return:
     """
@@ -114,14 +115,16 @@ def train(model: Models, project_dir: Path, epochs: int) -> None:
     # TODO:
     #    - Batch sizes as cl args
     #    - Criterion and optimizer from config
-    src_vocab, trg_vocab = _load_vocabs(project_dir)
+    protocol_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
+    for model_protocol_dir in protocol_dirs:
+        src_vocab, trg_vocab = _load_vocabs(model_protocol_dir)
 
-    model = model.value.build_from_config(
-        src_vocab, trg_vocab, project_dir / CHECKPOINT_FOLDER
-    )
-    train_data, val_data = _load_train_and_val_data(
-        project_dir, src_vocab, trg_vocab, model
-    )
-    criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[src_vocab.pad])
-    optimizer = Adam(model.parameters())
-    model.fit(epochs, train_data, val_data, criterion, optimizer)
+        model = model_type.value.build_from_config(
+            src_vocab, trg_vocab, model_protocol_dir / CHECKPOINT_FOLDER
+        )
+        train_data, val_data = _load_train_and_val_data(
+            model_protocol_dir, src_vocab, trg_vocab, model
+        )
+        criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[src_vocab.pad])
+        optimizer = Adam(model.parameters())
+        model.fit(epochs, train_data, val_data, criterion, optimizer)
