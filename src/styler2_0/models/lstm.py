@@ -1,4 +1,5 @@
 import random
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -8,15 +9,8 @@ from torch.optim import Optimizer
 from torch.types import Device
 
 from src.styler2_0.models.model_base import ModelBase
-from styler2_0.preprocessing.model_preprocessing import load_vocabs
-
-# from styler2_0.utils.checkstyle import run_checkstyle_on_str
-# from styler2_0.utils.tokenize import (
-#     CheckstyleToken,
-#     ProcessedSourceFile,
-#     tokenize_java_code,
-# )
-from styler2_0.utils.utils import load_yaml_file
+from src.styler2_0.models.vocab import Vocabulary
+from src.styler2_0.utils.utils import load_yaml_file
 
 
 class LSTMEncoder(nn.Module):
@@ -156,9 +150,9 @@ class LSTM(ModelBase):
         lstm_params = load_yaml_file(cls.CONFIGS_PATH / cls.CONFIG_FILE)
         input_length = lstm_params["input_length"]
         output_length = lstm_params["output_length"]
-        src_vocab, trg_vocab = load_vocabs(
-            lstm_params["src_vocab"], lstm_params["trg_vocab"]
-        )
+        src_vocab, trg_vocab = Vocabulary.load(
+            lstm_params["src_vocab"]
+        ), Vocabulary.load(lstm_params["trg_vocab"])
         encoder = LSTMEncoder(
             input_length,
             lstm_params["enc_emb_dim"],
@@ -263,6 +257,107 @@ class LSTM(ModelBase):
 
         return outputs
 
+    def _beam_search(
+        self, src: Tensor, beam_width: int = 5
+    ) -> list[tuple[Tensor, float]]:
+        """
+        Beam search decoding step used for inference.
+        Currently, working only with batch_size == 1!
+        :param beam_width: The beam width
+        :param src: input tensor of shape [src len, 1]
+        :return: predictions
+        """
+        # src = [src len, 1]
+
+        assert src.shape[1] == 1, "Currently, working only with batch_size == 1"
+
+        trg_len = self.output_length
+
+        # create mask for masking <UNK> to negative infinity
+        unk_mask = (
+            torch.zeros(1, len(self.trg_vocab))
+            .index_fill_(
+                1, torch.tensor([self.trg_vocab.stoi(self.trg_vocab.unk)]), -torch.inf
+            )
+            .to(self.device)
+        )
+
+        # last hidden state of the encoder is used as the initial hidden state
+        # of the decoder
+        hidden, cell = self.encoder(src)
+
+        # Init with one as in the first step only #beam_width can be sampled
+        # and then #beam_width^2 and <SOS> is always the first token
+        search_space = [
+            BeamSearchDecodingStepData(
+                torch.tensor([self.trg_vocab.stoi(self.trg_vocab.sos)]).to(self.device),
+                hidden,
+                cell,
+                1.0,  # <SOS> is always the first token
+                self.trg_vocab.stoi(self.trg_vocab.eos),
+            )
+        ]
+
+        for _ in range(1, trg_len):
+            # Init new search space as set to eliminate duplicates
+            # TODO: check if really necessary as those may only arose due to
+            #       not stopping the search when <EOS> is reached
+            new_search_space = set()
+
+            # Iterate over all samples in the search space and get predictions for each
+            for sample in search_space:
+                # If the sequence is finished, add it to the new search space
+                # and continue,as we don't need to predict anything for this
+                # sequence anymore
+                if sample.is_sequence_finished():
+                    new_search_space.add(sample)
+                    continue
+
+                # squeeze to add batch dimension to fit into decoding cell
+                inp = sample.sequence[-1].unsqueeze(0)
+                output, hidden, cell = self.decoder(inp, sample.hidden, sample.cell)
+
+                # Mask prob <UNK> token to negative infinity
+                output = output + unk_mask
+
+                # Apply Softmax to get confidences between [0, 1]
+                output = nn.Softmax(dim=1)(output)
+
+                confidences, indices = output.topk(beam_width, dim=1)
+
+                # Iterate over top k predictions and add them to the new search space
+                for conf, index in zip(
+                    confidences.squeeze(0), indices.squeeze(0), strict=True
+                ):
+                    new_search_space.add(
+                        BeamSearchDecodingStepData(
+                            torch.cat((sample.sequence, index.unsqueeze(0)), dim=0),
+                            hidden,
+                            cell,
+                            sample.confidence * conf.item(),  # Calculate new confidence
+                            sample.end_token_idx,
+                        )
+                    )
+
+            # Sort the new search space by confidence and take the top
+            # #beam_width samples
+            search_space = sorted(new_search_space, reverse=True)[:beam_width]
+
+        # Return the top #beam_width samples and their confidences
+        return [(sample.sequence, sample.confidence) for sample in search_space]
+
+    def _fix(self, src: Tensor, top_k: int) -> list[(float, Tensor)]:
+        """
+        Apply beam search in LSTM.
+        :param src: [input_length]
+        :param top_k:
+        :return:
+        """
+        # Format input to fit into beam search
+        # src = [input_length, 1]
+        src = src.unsqueeze(0).T
+        return self._beam_search(src, top_k)
+
     def _fit_one_batch(
         self, batch: Tensor, criterion: nn.Module, optimizer: Optimizer
     ) -> float:
@@ -328,42 +423,29 @@ class LSTM(ModelBase):
 
         return loss.item()
 
-    # def predict(self, code: str, config: Path, version: str) -> str:
-    #     """
-    #     Predict the translation of a code.
-    #     :param version:
-    #     :param config:
-    #     :param code:
-    #     :return:
-    #     """
-    #     report = run_checkstyle_on_str(code, version, config)
-    #     assert len(report.violations) == 1, "Code contains too many violations!"
-    #
-    #     tokenized_code = tokenize_java_code(code)
-    #     processed_code = ProcessedSourceFile(None, tokenized_code, report)
-    #
-    #     inp_tokens = []
-    #     pick = False
-    #     for token in processed_code.tokens:
-    #         if isinstance(token, CheckstyleToken) and token.is_starting:
-    #             pick = True
-    #         elif isinstance(token, CheckstyleToken) and not token.is_starting:
-    #             pick = False
-    #         if pick:
-    #             inp_tokens.append(token)
-    #
-    #     inp_tokens = (
-    #         [self.src_vocab.inverse["<SOS>"]]
-    #         + list(map(lambda t: self.src_vocab.inverse[str(t)], inp_tokens))
-    #         + [self.src_vocab.inverse["<EOS>"]]
-    #     )
-    #     inp_tokens.extend(
-    #         [self.src_vocab.inverse["<PAD>"]] * (self.input_length - len(inp_tokens))
-    #     )
-    #
-    #     src = torch.tensor(inp_tokens).to(self.device)
-    #     trg = torch.zeros(self.output_length, 1, len(self.trg_vocab)).to(self.device)
-    #     with torch.no_grad():
-    #         output = self(src.T, trg.T, 0)  # turn off teacher forcing
-    #     output = output.argmax(2)
-    #     return " ".join(map(lambda i: self.trg_vocab[i], output))
+
+@dataclass(frozen=True)
+class BeamSearchDecodingStepData:
+    """
+    Data class for beam search decoding step.
+    """
+
+    sequence: Tensor
+    hidden: Tensor
+    cell: Tensor
+    confidence: float
+    end_token_idx: int
+
+    def __lt__(self, other: ...) -> bool:
+        if not isinstance(other, type(self)):
+            raise ValueError(f"{other} is not of {type(self)}.")
+        return self.confidence < other.confidence
+
+    def __hash__(self) -> int:
+        return hash(self.sequence)
+
+    def __eq__(self, other: ...) -> bool:
+        return hash(self) == hash(other)
+
+    def is_sequence_finished(self) -> bool:
+        return self.sequence[-1].item() == self.end_token_idx

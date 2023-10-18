@@ -1,7 +1,9 @@
+import copy
 import os
 import re
 from collections.abc import Generator
 from pathlib import Path
+from typing import Self
 
 from streamerate import stream
 
@@ -301,6 +303,41 @@ class ProcessedSourceFile:
                     lambda t, s=ctx_start_line, e=ctx_end_line: s <= t.line <= e
                 )
             )
+
+    def get_fixes_for(
+        self, fixes: list[list[str]], violation: (CheckstyleToken, CheckstyleToken)
+    ) -> Generator[Self, None, None]:
+        """
+        Get all possible fixes for a violation.
+        :param fixes: The possible fixes.
+        :param violation: The violation to be tackled.
+        :return: Returns the processed source file with the fixes applied.
+        """
+        start, end = violation
+        start_idx = self.tokens.index(start)
+        end_idx = self.tokens.index(end)
+        tokens_between = self.tokens[start_idx : end_idx + 1]
+        possible_fixes = []
+        for fix in fixes:
+            try:
+                possible_fix = []
+                min_range = min(len(tokens_between), len(fix))
+                for i in range(min_range):
+                    # Currently, only insert whitespaces
+                    fix_token = copy.deepcopy(tokens_between[i])
+                    if isinstance(tokens_between[i], Whitespace):
+                        fix_str = Whitespace.parse_tokenized_str(fix[i])
+                        fix_token.text = fix_str
+                    possible_fix.append(fix_token)
+                if min_range < len(tokens_between):
+                    possible_fix.extend(tokens_between[min_range + 1 :])
+                possible_fixes.append(possible_fix)
+            except ValueError:
+                continue
+        for possible_fix in possible_fixes:
+            copy_tokens = copy.deepcopy(self.tokens)
+            copy_tokens[start_idx : end_idx + 1] = possible_fix
+            yield ProcessedSourceFile(self.file_name, copy_tokens)
 
     def __repr__(self) -> str:
         return self.tokenized_str()

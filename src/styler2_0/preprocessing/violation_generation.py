@@ -580,7 +580,9 @@ def filter_relevant_tokens(
     return (
         " ".join(
             stream(non_violated_tokens)
-            .filter(lambda t: isinstance(t, Whitespace))
+            # TODO: styler uses only whitespaces but we want to use all tokens
+            #       (knowingly that decrease the performance)
+            # .filter(lambda t: isinstance(t, Whitespace))
             .map(str)
         ),
         " ".join(stream(next(violated.violations_with_ctx())).map(str)),

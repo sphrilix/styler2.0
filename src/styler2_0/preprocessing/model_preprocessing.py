@@ -94,6 +94,8 @@ def _build_inputs_from_vocab(
         metadata = Metadata.from_json(
             read_content_of_file(input_dir / violation / DATA_JSON)
         )
+
+        # TODO: str longer than input length
         violated_tokens = ["<SOS>"] + metadata.violated_str.split(" ") + ["<EOS>"]
         non_violated_tokens = (
             ["<SOS>"] + metadata.non_violated_str.split(" ") + ["<EOS>"]

@@ -1,7 +1,5 @@
-import json
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from bidict import bidict
 from streamerate import stream
@@ -9,9 +7,10 @@ from torch import Tensor, long, nn, tensor
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from styler2_0.models.lstm import LSTM
-from styler2_0.models.model_base import ModelBase
-from styler2_0.utils.utils import read_content_of_file
+from src.styler2_0.models.lstm import LSTM
+from src.styler2_0.models.model_base import ModelBase
+from src.styler2_0.models.vocab import Vocabulary
+from src.styler2_0.utils.utils import read_content_of_file
 
 TRAIN_DATA = Path("train")
 TRAIN_SRC = TRAIN_DATA / Path("input.txt")
@@ -38,7 +37,7 @@ class Models(Enum):
 
 # noinspection PyTypeChecker
 def _load_train_and_val_data(
-    project_dir: Path, src_vocab: bidict, trg_vocab: bidict, model: ModelBase
+    project_dir: Path, src_vocab: Vocabulary, trg_vocab: Vocabulary, model: ModelBase
 ) -> tuple[DataLoader, DataLoader]:
     """
     Load the train and validation data.
@@ -59,8 +58,8 @@ def _load_train_and_val_data(
         project_dir / VAL_TRG, model.output_length, trg_vocab
     )
     return (
-        DataLoader(list(zip(train_inp, train_trg, strict=True)), batch_size=3),
-        DataLoader(list(zip(val_inp, val_trg, strict=True)), batch_size=2),
+        DataLoader(list(zip(train_inp, train_trg, strict=True)), batch_size=32),
+        DataLoader(list(zip(val_inp, val_trg, strict=True)), batch_size=32),
     )
 
 
@@ -80,7 +79,7 @@ def _load_file_to_tensor(file_path: Path, dim: int, vocab: bidict) -> Tensor:
     return tensor(loaded_ints, dtype=long)
 
 
-def _line_to_tensor(line: str, dim: int, vocab: bidict) -> list:
+def _line_to_tensor(line: str, dim: int, vocab: Vocabulary) -> list:
     """
     Load the given line to a tensor.
     :param line: The given line.
@@ -89,34 +88,19 @@ def _line_to_tensor(line: str, dim: int, vocab: bidict) -> list:
     :return: The tensor.
     """
     raw_tensor = list(stream(line.split(" ")).map(int).to_list())
-    raw_tensor.extend([vocab.inverse["<PAD>"]] * (dim - len(raw_tensor)))
+    raw_tensor.extend([vocab[vocab.pad]] * (dim - len(raw_tensor)))
     return raw_tensor
 
 
-def _load_vocabs(project_dir: Path) -> tuple[bidict, bidict]:
+def _load_vocabs(project_dir: Path) -> tuple[Vocabulary, Vocabulary]:
     """
     Load the vocabs from the given project dir.
     :param project_dir: The given project dir.
     :return: The vocabs.
     """
-    src_vocab = json.loads(
-        read_content_of_file(project_dir / SRC_VOCAB_FILE),
-        object_hook=lambda data: _load_vocab_to_dict_int_str(data),
+    return Vocabulary.load(project_dir / SRC_VOCAB_FILE), Vocabulary.load(
+        project_dir / TRG_VOCAB_FILE
     )
-    trg_vocab = json.loads(
-        read_content_of_file(project_dir / TRG_VOCAB_FILE),
-        object_hook=lambda data: _load_vocab_to_dict_int_str(data),
-    )
-    return src_vocab, trg_vocab
-
-
-def _load_vocab_to_dict_int_str(raw_vocab: Any) -> bidict[int, str]:
-    """
-    Load the given vocab to a bidict.
-    :param raw_vocab: The given vocab.
-    :return: The bidict.
-    """
-    return bidict({int(key): value for key, value in raw_vocab.items()})
 
 
 def train(model: Models, project_dir: Path, epochs: int) -> None:
@@ -136,15 +120,6 @@ def train(model: Models, project_dir: Path, epochs: int) -> None:
     train_data, val_data = _load_train_and_val_data(
         project_dir, src_vocab, trg_vocab, model
     )
-    criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.inv["<PAD>"])
+    criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[src_vocab.pad])
     optimizer = Adam(model.parameters())
     model.fit(epochs, train_data, val_data, criterion, optimizer)
-    model.predict(
-        read_content_of_file(
-            Path(
-                "/Users/maxij/PycharmProjects/styler2.0/data/tmp/model_data/three_gram/train/1/VIOLATED_NoteItemTriageStatusComparator.java"
-            )
-        ),
-        Path("/Users/maxij/PycharmProjects/styler2.0/data/tmp/checkstyle.xml"),
-        "8.0",
-    )
