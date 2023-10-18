@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from bidict import bidict
 from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.types import Device
@@ -184,8 +183,8 @@ class LSTM(ModelBase):
         device: Device,
         input_length: int,
         output_length: int,
-        src_vocab: bidict[int, str],
-        trg_vocab: bidict[int, str],
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
     ) -> None:
         """
         Initialize the model.
