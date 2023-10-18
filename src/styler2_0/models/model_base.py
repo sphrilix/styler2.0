@@ -9,6 +9,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
+from src.styler2_0.utils.utils import load_yaml_file
 from src.styler2_0.utils.vocab import Vocabulary
 
 
@@ -27,14 +28,13 @@ class ModelBase(nn.Module, ABC):
         output_length: int,
         src_vocab: Vocabulary,
         trg_vocab: Vocabulary,
-        save: Path = None,
+        save: Path,
     ) -> None:
         self.input_length = input_length
         self.output_length = output_length
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
-        if not save:
-            self.save = self.SAVE_PATH / Path(self.__class__.__name__)
+        self.save = save
         os.makedirs(self.save, exist_ok=True)
         super().__init__()
 
@@ -177,3 +177,54 @@ class ModelBase(nn.Module, ABC):
             self.input_length - len(inp)
         )
         return torch.tensor(inp, dtype=long, device=self.device)
+
+    @classmethod
+    def build_from_config(
+        cls, src_vocab: Vocabulary, trg_vocab: Vocabulary, save: Path
+    ) -> "ModelBase":
+        """
+        This should load the model hyperparams from a config file.
+        This file should be stored in {root}/config/models/{cls.__name__}.yaml.
+        It also sets the src_vocab, trg_vocab and where to save the checkpoints.
+        :param src_vocab: The input vocabulary.
+        :param trg_vocab: The output vocabulary.
+        :param save: The path to store the checkpoints.
+        :return: Returns the loaded model.
+        """
+        params = load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
+        return cls._build_from_config(params, src_vocab, trg_vocab, save)
+
+    @classmethod
+    @abstractmethod
+    def _build_from_config(
+        cls,
+        params: dict[str, ...],
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
+        save: Path,
+    ) -> "ModelBase":
+        """
+        This should set the model hyperparams from the already loaded config file.
+        It also sets the src_vocab, trg_vocab and where to save the checkpoints.
+        :param params: The hyperparams.
+        :param src_vocab: The input vocabulary.
+        :param trg_vocab: The output vocabulary.
+        :param save: The path to store the checkpoints.
+        :return: Returns the loaded model.
+        """
+        pass
+
+    @classmethod
+    def load_from_config(
+        cls, src_vocab: Vocabulary, trg_vocab: Vocabulary, save: Path
+    ) -> "ModelBase":
+        """
+        Load the model from the given path.
+        :param src_vocab: The input vocabulary.
+        :param trg_vocab: The output vocabulary.
+        :param save: The path to store the checkpoints.
+        :return: Returns the loaded model.
+        """
+        model = cls.build_from_config(src_vocab, trg_vocab, save)
+        model.load_state_dict(torch.load(save))
+        return model

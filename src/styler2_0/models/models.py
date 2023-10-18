@@ -20,8 +20,7 @@ VAL_SRC = VAL_DATA / Path("input.txt")
 VAL_TRG = VAL_DATA / Path("ground_truth.txt")
 SRC_VOCAB_FILE = Path("src_vocab.txt")
 TRG_VOCAB_FILE = Path("trg_vocab.txt")
-LSTM_INPUT_DIM = 650
-LSTM_OUTPUT_DIM = 105
+CHECKPOINT_FOLDER = Path("checkpoints")
 
 
 class Models(Enum):
@@ -115,8 +114,11 @@ def train(model: Models, project_dir: Path, epochs: int) -> None:
     # TODO:
     #    - Batch sizes as cl args
     #    - Criterion and optimizer from config
-    model = model.value.build_from_config()
     src_vocab, trg_vocab = _load_vocabs(project_dir)
+
+    model = model.value.build_from_config(
+        src_vocab, trg_vocab, project_dir / CHECKPOINT_FOLDER
+    )
     train_data, val_data = _load_train_and_val_data(
         project_dir, src_vocab, trg_vocab, model
     )

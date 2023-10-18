@@ -8,7 +8,6 @@ from torch.optim import Optimizer
 from torch.types import Device
 
 from src.styler2_0.models.model_base import ModelBase
-from src.styler2_0.utils.utils import load_yaml_file
 from src.styler2_0.utils.vocab import Vocabulary
 
 
@@ -138,42 +137,43 @@ class LSTMDecoder(nn.Module):
 
 
 class LSTM(ModelBase):
-    CONFIG_FILE = Path("lstm.yaml")
-
     @classmethod
-    def build_from_config(cls) -> "LSTM":
+    def _build_from_config(
+        cls,
+        params: dict[str, ...],
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
+        save: Path,
+    ) -> "LSTM":
         """
         Build the model from the configuration file.
         :return: the model.
         """
-        lstm_params = load_yaml_file(cls.CONFIGS_PATH / cls.CONFIG_FILE)
-        input_length = lstm_params["input_length"]
-        output_length = lstm_params["output_length"]
-        src_vocab, trg_vocab = Vocabulary.load(
-            lstm_params["src_vocab"]
-        ), Vocabulary.load(lstm_params["trg_vocab"])
+        input_length = params["input_length"]
+        output_length = params["output_length"]
         encoder = LSTMEncoder(
             input_length,
-            lstm_params["enc_emb_dim"],
-            lstm_params["hidden_dim"],
-            lstm_params["n_layers"],
-            lstm_params["enc_dropout"],
+            params["enc_emb_dim"],
+            params["hidden_dim"],
+            params["n_layers"],
+            params["enc_dropout"],
         )
         decoder = LSTMDecoder(
             len(trg_vocab),
-            lstm_params["dec_emb_dim"],
-            lstm_params["hidden_dim"],
-            lstm_params["n_layers"],
-            lstm_params["dec_dropout"],
+            params["dec_emb_dim"],
+            params["hidden_dim"],
+            params["n_layers"],
+            params["dec_dropout"],
         )
         return LSTM(
             encoder,
             decoder,
-            lstm_params["device"],
+            params["device"],
             input_length,
             output_length,
             src_vocab,
             trg_vocab,
+            save,
         )
 
     def __init__(
@@ -185,6 +185,7 @@ class LSTM(ModelBase):
         output_length: int,
         src_vocab: Vocabulary,
         trg_vocab: Vocabulary,
+        save: Path,
     ) -> None:
         """
         Initialize the model.
@@ -194,7 +195,7 @@ class LSTM(ModelBase):
         :param input_length: input length
         :param output_length: output length
         """
-        super().__init__(input_length, output_length, src_vocab, trg_vocab)
+        super().__init__(input_length, output_length, src_vocab, trg_vocab, save)
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
