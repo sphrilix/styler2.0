@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
-from src.styler2_0.models.vocab import Vocabulary
 from src.styler2_0.utils.utils import read_content_of_file
+from src.styler2_0.utils.vocab import Vocabulary
 
 TRAIN_DATA = Path("train")
 TRAIN_SRC = TRAIN_DATA / Path("input.txt")

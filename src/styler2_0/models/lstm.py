@@ -9,8 +9,8 @@ from torch.optim import Optimizer
 from torch.types import Device
 
 from src.styler2_0.models.model_base import ModelBase
-from src.styler2_0.models.vocab import Vocabulary
 from src.styler2_0.utils.utils import load_yaml_file
+from src.styler2_0.utils.vocab import Vocabulary
 
 
 class LSTMEncoder(nn.Module):

@@ -8,8 +8,8 @@ from torch import Tensor, long, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
-from src.styler2_0.models.vocab import Vocabulary
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
+from src.styler2_0.utils.vocab import Vocabulary
 
 
 class ModelBase(nn.Module, ABC):
