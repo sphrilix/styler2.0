@@ -162,18 +162,18 @@ class ModelBase(nn.Module, ABC):
         """
         pass
 
-    def _process_predict_input(self, input: list[int]) -> Tensor:
+    def _process_predict_input(self, inp: list[int]) -> Tensor:
         """
         Process the input for the predict method.
-        :param input: The input.
+        :param inp: The input.
         :return: The processed input.
         """
-        input = (
+        inp = (
             [self.src_vocab[self.src_vocab.sos]]
-            + input[: self.input_length - 1]
+            + inp[: self.input_length - 1]
             + [self.src_vocab[self.src_vocab.eos]]
         )
-        input = input + [self.src_vocab[self.src_vocab.pad]] * (
-            self.input_length - len(input)
+        inp = inp + [self.src_vocab[self.src_vocab.pad]] * (
+            self.input_length - len(inp)
         )
-        return torch.tensor(input, dtype=long, device=self.device)
+        return torch.tensor(inp, dtype=long, device=self.device)
