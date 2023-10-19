@@ -1,3 +1,4 @@
+import json
 import shutil
 from collections.abc import Sequence
 from contextlib import suppress
@@ -7,6 +8,7 @@ from xml.etree.ElementTree import ParseError
 
 from pydriller import Commit, Git, Repository
 from streamerate import stream
+from tqdm import tqdm
 
 from src.styler2_0.utils.checkstyle import (
     CheckstyleFileReport,
@@ -15,6 +17,7 @@ from src.styler2_0.utils.checkstyle import (
     run_checkstyle_on_dir,
 )
 from styler2_0.utils.maven import pom_includes_checkstyle_suppression
+from styler2_0.utils.utils import save_content_to_file
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
@@ -86,6 +89,13 @@ def process_git_repository(
             commits, config, version, input_dir, git_repo
         )
         _save_violations(violations, input_dir, output_dir)
+        meta_data = {
+            "version": version,
+            "config": str(config),
+        }
+        save_content_to_file(
+            output_dir / MINED_VIOLATIONS_DIR / "data.json", json.dumps(meta_data)
+        )
 
 
 def _extract_commits_to_search(input_dir: Path, config: Path) -> Sequence[Commit]:
@@ -121,7 +131,7 @@ def _mine_violations_and_fixes_from_commits(
 
     already_seen_reports: set[CheckstyleFileReport] = set()
     mined_violations: list[MinedViolation] = []
-    for commit in commits:
+    for commit in tqdm(commits, desc="Mining violations"):
         # TODO: check why the parse error is raised
         with suppress(ParseError):
             git_repo.checkout(commit.hash)
@@ -249,7 +259,7 @@ def _save_violations(
     :return:
     """
     git_repo = Git(str(input_dir))
-    for i, violation in enumerate(commit_reports):
+    for i, violation in tqdm(enumerate(commit_reports), desc="Saving violations"):
         git_repo.checkout(violation.violations_hash)
         violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
         violation_dir.mkdir(parents=True)

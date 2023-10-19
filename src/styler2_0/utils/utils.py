@@ -128,7 +128,7 @@ def save_content_to_file(file: Path, content: str) -> None:
         file_stream.write(content)
 
 
-def read_content_of_file(file: Path, encoding: str = "utf-8") -> str:
+def read_content_of_file(file: Path, encoding: str = None) -> str:
     """
     Read the content of a file to str.
     :param file: The given file.
