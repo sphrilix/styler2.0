@@ -7,13 +7,18 @@ from streamerate import stream
 from torch import Tensor, long, nn, tensor
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
 from src.styler2_0.utils.checkstyle import run_checkstyle_on_str
 from src.styler2_0.utils.java import is_parseable
 from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
-from src.styler2_0.utils.utils import get_files_in_dir, read_content_of_file
+from src.styler2_0.utils.utils import (
+    get_files_in_dir,
+    get_sub_dirs_in_dir,
+    read_content_of_file,
+)
 from src.styler2_0.utils.vocab import Vocabulary
 
 TRAIN_DATA = Path("train")
@@ -164,14 +169,13 @@ def evaluate(
     meta_data = json.loads(read_content_of_file(mined_violations_dir / META_DATA_EVAL))
     config = meta_data["config"]
     version = meta_data["version"]
-    all_violations = get_files_in_dir(mined_violations_dir, suffix=".java")
+    all_violation_dirs = get_sub_dirs_in_dir(mined_violations_dir)
     fixed = 0
     not_fixed = 0
-    for violation in all_violations:
-        violation_content = read_content_of_file(violation)
+    for violation in tqdm(all_violation_dirs, "Evaluating fixing of violations"):
+        violation_file = get_files_in_dir(violation / "violation")[0]
+        violation_content = read_content_of_file(violation_file)
         report = run_checkstyle_on_str(violation_content, version, config)
-        if not report.violations:
-            continue
         tokens = tokenize_java_code(violation_content)
         processed_file = ProcessedSourceFile(None, tokens, report)
         possible_fixes = []
@@ -187,7 +191,9 @@ def evaluate(
             ):
                 real_fixes.append(possible_fix)
         if real_fixes:
+            print("fixed")
             fixed += 1
         else:
+            print("not fixed")
             not_fixed += 1
     print(f"Fixed: {fixed}, Not fixed: {not_fixed}")
