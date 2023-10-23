@@ -225,6 +225,7 @@ class ModelBase(nn.Module, ABC):
         :param save: The path to store the checkpoints.
         :return: Returns the loaded model.
         """
-        model = cls.build_from_config(src_vocab, trg_vocab, save)
+        # set parent of as save-path for further training
+        model = cls.build_from_config(src_vocab, trg_vocab, save.parent)
         model.load_state_dict(torch.load(save))
         return model

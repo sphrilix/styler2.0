@@ -23,7 +23,7 @@ from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
-from styler2_0.models.models import Models, train
+from styler2_0.models.models import Models, evaluate, train
 
 
 class TaskNotSupportedException(Exception):
@@ -38,6 +38,7 @@ class Tasks(Enum):
     PREPROCESSING = "PREPROCESSING"
     TRAIN = "TRAIN"
     MINE_VIOLATIONS = "MINE_VIOLATIONS"
+    EVAL = "EVAL"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -45,6 +46,16 @@ class Tasks(Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+def _run_evaluation(
+    model: Models,
+    mined_violation_dir: Path,
+    model_data_dirs: list[Path],
+    checkpoints: list[Path],
+    top_k: int,
+) -> None:
+    evaluate(model, mined_violation_dir, model_data_dirs, checkpoints, top_k)
 
 
 def main() -> int:
@@ -66,6 +77,14 @@ def main() -> int:
                 parsed_args.model,
                 parsed_args.path,
                 parsed_args.epochs,
+            )
+        case Tasks.EVAL:
+            _run_evaluation(
+                parsed_args.model,
+                parsed_args.mined_violations_dir,
+                parsed_args.model_data_dirs,
+                parsed_args.checkpoints,
+                parsed_args.top_k,
             )
         case _:
             return 1
@@ -157,6 +176,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
     mine_violations_sub_parser = sub_parser.add_parser(str(Tasks.MINE_VIOLATIONS))
     train_sub_parser = sub_parser.add_parser(str(Tasks.TRAIN))
+    eval_sub_parser = sub_parser.add_parser(str(Tasks.EVAL))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -189,6 +209,15 @@ def _set_up_arg_parser() -> ArgumentParser:
     # Set up arguments for mining violations
     mine_violations_sub_parser.add_argument("--repo", type=Path, required=True)
     mine_violations_sub_parser.add_argument("--save", type=Path, required=True)
+
+    # Set up arguments for evaluation
+    eval_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
+    eval_sub_parser.add_argument("--checkpoints", type=Path, nargs="+", required=True)
+    eval_sub_parser.add_argument(
+        "--model_data_dirs", type=Path, nargs="+", required=True
+    )
+    eval_sub_parser.add_argument("--top_k", type=int, default=5)
+    eval_sub_parser.add_argument("--mined_violations_dir", type=Path, required=True)
 
     return arg_parser
 

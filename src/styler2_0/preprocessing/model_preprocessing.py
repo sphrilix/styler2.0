@@ -22,7 +22,6 @@ INPUT_TXT = Path("input.txt")
 GROUND_TRUTH_TXT = Path("ground_truth.txt")
 MODEL_DATA_PATH = Path("../../model_data")
 VOCAB_SPECIAL_TOKEN = ["<SOS>", "<EOS>", "<UNK>", "<PAD>"]
-MINED_VIOLATIONS = Path("mined_violations")
 
 
 def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:

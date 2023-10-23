@@ -1,3 +1,4 @@
+import json
 from enum import Enum
 from pathlib import Path
 
@@ -9,7 +10,10 @@ from torch.utils.data import DataLoader
 
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
-from src.styler2_0.utils.utils import read_content_of_file
+from src.styler2_0.utils.checkstyle import run_checkstyle_on_str
+from src.styler2_0.utils.java import is_parseable
+from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
+from src.styler2_0.utils.utils import get_files_in_dir, read_content_of_file
 from src.styler2_0.utils.vocab import Vocabulary
 
 TRAIN_DATA = Path("train")
@@ -22,6 +26,7 @@ SRC_VOCAB_FILE = Path("src_vocab.txt")
 TRG_VOCAB_FILE = Path("trg_vocab.txt")
 CHECKPOINT_FOLDER = Path("checkpoints")
 BEST_MODEL = Path("best_model.pt")
+META_DATA_EVAL = Path("data.json")
 
 
 class Models(Enum):
@@ -128,3 +133,61 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
         criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[src_vocab.pad])
         optimizer = Adam(model.parameters())
         model.fit(epochs, train_data, val_data, criterion, optimizer)
+
+
+def evaluate(
+    model: Models,
+    mined_violations_dir: Path,
+    model_data_dirs: list[Path],
+    checkpoints: list[Path],
+    top_k: int = 5,
+) -> None:
+    """
+    Evaluate the given models (all the same type) combined on the mined violations
+    (Same as styler). Mined that checkpoints and model_data_dirs are in the same order.
+    :param model:
+    :param mined_violations_dir:
+    :param model_data_dirs:
+    :param checkpoints:
+    :param top_k:
+    :return:
+    """
+    assert len(model_data_dirs) == len(
+        checkpoints
+    ), "The number of model data dirs and checkpoints must be the same."
+    vocabs: list[(Vocabulary, Vocabulary)] = [_load_vocabs(d) for d in model_data_dirs]
+    models: list[ModelBase] = []
+    for index, checkpoint in enumerate(checkpoints):
+        src_vocab, trg_vocab = vocabs[index]
+        model = model.value.load_from_config(src_vocab, trg_vocab, checkpoint)
+        models.append(model)
+    meta_data = json.loads(read_content_of_file(mined_violations_dir / META_DATA_EVAL))
+    config = meta_data["config"]
+    version = meta_data["version"]
+    all_violations = get_files_in_dir(mined_violations_dir, suffix=".java")
+    fixed = 0
+    not_fixed = 0
+    for violation in all_violations:
+        violation_content = read_content_of_file(violation)
+        report = run_checkstyle_on_str(violation_content, version, config)
+        if not report.violations:
+            continue
+        tokens = tokenize_java_code(violation_content)
+        processed_file = ProcessedSourceFile(None, tokens, report)
+        possible_fixes = []
+        for model in models:
+            possible_fixes.extend(model.fix(processed_file, top_k))
+        real_fixes = []
+        for possible_fix in possible_fixes:
+            if (
+                is_parseable(possible_fix.de_tokenize())
+                and not run_checkstyle_on_str(
+                    possible_fix.de_tokenize(), version, config
+                ).violations
+            ):
+                real_fixes.append(possible_fix)
+        if real_fixes:
+            fixed += 1
+        else:
+            not_fixed += 1
+    print(f"Fixed: {fixed}, Not fixed: {not_fixed}")

@@ -229,6 +229,9 @@ class CheckstyleToken(Token):
     def __str__(self) -> str:
         return f"<{'/' * int(not self.is_starting)}{self.text}>"
 
+    def de_tokenize(self) -> str:
+        return ""
+
 
 class ProcessedSourceFile:
     """
