@@ -9,6 +9,7 @@ from typing import Any
 
 from streamerate import stream
 
+from src.styler2_0.models.models import Models, evaluate, train
 from src.styler2_0.preprocessing.model_preprocessing import preprocessing
 from src.styler2_0.preprocessing.violation_generation import (
     Protocol,
@@ -23,7 +24,6 @@ from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
-from styler2_0.models.models import Models, evaluate, train
 
 
 class TaskNotSupportedException(Exception):
