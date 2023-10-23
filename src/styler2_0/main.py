@@ -152,7 +152,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     generation.add_argument(
         "--protocol",
         action=enum_action(Protocol),
-        required=False,
+        required=True,
     )
     generation.add_argument("--n", type=int, required=True)
     generation.add_argument("--save", required=True, type=Path)
