@@ -16,8 +16,8 @@ from src.styler2_0.utils.checkstyle import (
     contains_config_variables,
     run_checkstyle_on_dir,
 )
-from styler2_0.utils.maven import pom_includes_checkstyle_suppression
-from styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.maven import pom_includes_checkstyle_suppression
+from src.styler2_0.utils.utils import save_content_to_file
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 

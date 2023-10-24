@@ -195,10 +195,11 @@ class LSTM(ModelBase):
         :param input_length: input length
         :param output_length: output length
         """
-        super().__init__(input_length, output_length, src_vocab, trg_vocab, save)
+        super().__init__(
+            input_length, output_length, src_vocab, trg_vocab, save, device
+        )
         self.encoder = encoder
         self.decoder = decoder
-        self.device = device
 
         assert (
             encoder.hid_dim == decoder.hid_dim

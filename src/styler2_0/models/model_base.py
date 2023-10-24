@@ -29,12 +29,14 @@ class ModelBase(nn.Module, ABC):
         src_vocab: Vocabulary,
         trg_vocab: Vocabulary,
         save: Path,
+        device: str,
     ) -> None:
         self.input_length = input_length
         self.output_length = output_length
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
         self.save = save
+        self.device = device
         os.makedirs(self.save, exist_ok=True)
         super().__init__()
 

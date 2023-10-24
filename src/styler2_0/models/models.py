@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
+from src.styler2_0.models.transformer import Transformer
 from src.styler2_0.utils.checkstyle import run_checkstyle_on_str
 from src.styler2_0.utils.java import is_parseable
 from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
@@ -42,7 +43,7 @@ class Models(Enum):
     LSTM = LSTM
     ANN = None
     NGRAM = None
-    TRANSFORMER = None
+    TRANSFORMER = Transformer
 
 
 # noinspection PyTypeChecker
