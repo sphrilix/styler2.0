@@ -9,6 +9,7 @@ from typing import Any
 
 from streamerate import stream
 
+from src.styler2_0.models.models import Models, evaluate, train
 from src.styler2_0.preprocessing.model_preprocessing import preprocessing
 from src.styler2_0.preprocessing.violation_generation import (
     Protocol,
@@ -35,7 +36,9 @@ class Tasks(Enum):
     GENERATE_VIOLATIONS = "GENERATE_VIOLATIONS"
     ADAPT_THREE_GRAMS = "ADAPT_THREE_GRAMS"
     PREPROCESSING = "PREPROCESSING"
+    TRAIN = "TRAIN"
     MINE_VIOLATIONS = "MINE_VIOLATIONS"
+    EVAL = "EVAL"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -43,6 +46,16 @@ class Tasks(Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+def _run_evaluation(
+    model: Models,
+    mined_violation_dir: Path,
+    model_data_dirs: list[Path],
+    checkpoints: list[Path],
+    top_k: int,
+) -> None:
+    evaluate(model, mined_violation_dir, model_data_dirs, checkpoints, top_k)
 
 
 def main() -> int:
@@ -56,9 +69,23 @@ def main() -> int:
         case Tasks.ADAPT_THREE_GRAMS:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
-            preprocessing(parsed_args.violation_dir, parsed_args.splits)
+            preprocessing(parsed_args.project_dir, parsed_args.splits)
         case Tasks.MINE_VIOLATIONS:
             _run_violation_mining(parsed_args.repo, parsed_args.save)
+        case Tasks.TRAIN:
+            train(
+                parsed_args.model,
+                parsed_args.path,
+                parsed_args.epochs,
+            )
+        case Tasks.EVAL:
+            _run_evaluation(
+                parsed_args.model,
+                parsed_args.mined_violations_dir,
+                parsed_args.model_data_dirs,
+                parsed_args.checkpoints,
+                parsed_args.top_k,
+            )
         case _:
             return 1
     return 0
@@ -74,6 +101,7 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
 
     if not config:
         config = find_checkstyle_config(source)
+
     copyfile(config, save / Path("checkstyle.xml"))
 
     if not version:
@@ -147,6 +175,8 @@ def _set_up_arg_parser() -> ArgumentParser:
     adapting_three_gram = sub_parser.add_parser(str(Tasks.ADAPT_THREE_GRAMS))
     preprocessing_sub_parser = sub_parser.add_parser(str(Tasks.PREPROCESSING))
     mine_violations_sub_parser = sub_parser.add_parser(str(Tasks.MINE_VIOLATIONS))
+    train_sub_parser = sub_parser.add_parser(str(Tasks.TRAIN))
+    eval_sub_parser = sub_parser.add_parser(str(Tasks.EVAL))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -166,14 +196,28 @@ def _set_up_arg_parser() -> ArgumentParser:
     adapting_three_gram.add_argument("--out_file", type=Path, required=True)
 
     # Set up arguments for model preprocessing
-    preprocessing_sub_parser.add_argument("--violation_dir", type=Path, required=True)
+    preprocessing_sub_parser.add_argument("--project_dir", type=Path, required=True)
     preprocessing_sub_parser.add_argument(
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
 
+    # Set up arguments for model training
+    train_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
+    train_sub_parser.add_argument("--path", type=Path, required=True)
+    train_sub_parser.add_argument("--epochs", type=int, required=True)
+
     # Set up arguments for mining violations
     mine_violations_sub_parser.add_argument("--repo", type=Path, required=True)
     mine_violations_sub_parser.add_argument("--save", type=Path, required=True)
+
+    # Set up arguments for evaluation
+    eval_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
+    eval_sub_parser.add_argument("--checkpoints", type=Path, nargs="+", required=True)
+    eval_sub_parser.add_argument(
+        "--model_data_dirs", type=Path, nargs="+", required=True
+    )
+    eval_sub_parser.add_argument("--top_k", type=int, default=5)
+    eval_sub_parser.add_argument("--mined_violations_dir", type=Path, required=True)
 
     return arg_parser
 

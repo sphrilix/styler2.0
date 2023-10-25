@@ -6,7 +6,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TypeVar
 
+import yaml
 from chardet import detect
+from yaml import SafeLoader
 
 T = TypeVar("T")
 E = TypeVar("E", bound=Enum)
@@ -160,3 +162,34 @@ def get_files_in_dir(directory: Path, suffix: str = None) -> list[Path]:
                 files_in_dir.append(Path(subdir) / Path(file))
 
     return files_in_dir
+
+
+def get_sub_dirs_in_dir(directory: Path, depth: int = 1) -> list[Path]:
+    """
+    Get subdirectories in given directory with the given depth.
+    Set depth = -1 to get all subdirectories.
+    :param directory: The given directory.
+    :param depth: The given depth.
+    :return: Returns the subdirectories.
+    """
+    sub_dirs_in_dir: list[Path] = []
+    for subdir, _, _ in os.walk(directory):
+        subdir = Path(subdir)
+        if subdir != directory and (
+            depth == -1
+            or str(subdir).count(os.path.sep) - str(directory).count(os.path.sep)
+            <= depth
+        ):
+            sub_dirs_in_dir.append(Path(subdir))
+
+    return sub_dirs_in_dir
+
+
+def load_yaml_file(path: Path) -> dict[str, Any]:
+    """
+    Loads a yaml file to a dict.
+    :param path: The path to the yaml file.
+    :return: Returns the loaded yaml as dict.
+    """
+    raw_str = read_content_of_file(path)
+    return yaml.load(raw_str, Loader=SafeLoader)

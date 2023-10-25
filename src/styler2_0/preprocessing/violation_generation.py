@@ -508,7 +508,7 @@ class Metadata:
             .filter(lambda file: len(file.report.violations) > 0)
             .next()
         )
-        self.non_violated_str, self.violated_str = self.__filter_relevant_tokens(
+        self.non_violated_str, self.violated_str = filter_relevant_tokens(
             non_violated, violated
         )
 
@@ -564,3 +564,33 @@ def generate_n_violations(
     protocol(
         n, non_violated_sources, checkstyle_config, checkstyle_version, save_path, delta
     ).generate_violations()
+
+
+def filter_relevant_tokens(
+    non_violated: ProcessedSourceFile, violated: ProcessedSourceFile, context: int = 2
+) -> (str, str):
+    """
+    Filter the relevant tokens out of the non_violated and violated source file.
+    :param non_violated: The not violated source file.
+    :param violated: The violated source file.
+    :param context: The specified line context around the violation.
+    :return: Returns the filtered non_violated and violated source tokens.
+    """
+    assert len(violated.checkstyle_tokens) == 2
+    violated_tokens = next(violated.tokens_between_violations())
+    violated_tokens_wo_checkstyle = violated_tokens[1:-1]
+    start_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[1])
+    end_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[-2]) + 1
+    non_violated_tokens = non_violated.tokens[
+        start_idx_non_violated:end_idx_non_violated
+    ]
+    return (
+        " ".join(
+            stream(non_violated_tokens)
+            # TODO: styler uses only whitespaces but we want to use all tokens
+            #       (knowingly that might decrease the performance)
+            # .filter(lambda t: isinstance(t, Whitespace))
+            .map(str)
+        ),
+        " ".join(stream(next(violated.violations_with_ctx(context))).map(str)),
+    )

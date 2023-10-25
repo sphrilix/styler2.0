@@ -12,11 +12,13 @@ styler2_0 = "styler2_0.main:main"
 
 [tool.poetry.dependencies]
 python = "~3.11"
-antlr4-python3-runtime = "^4.12.0"
+antlr4-python3-runtime = "4.12.0"
 pyxtension = "^1.16.1"
 tqdm = "^4.65.0"
-torch = "^2.0.1"
+torch = ">=2.0.0, !=2.0.1, !=2.1.0"
 bidict = "^0.22.1"
+numpy = "^1.25.0"
+pyyaml = "^6.0.1"
 pydriller = "^2.5.1"
 chardet = "^5.2.0"
 

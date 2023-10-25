@@ -1,6 +1,10 @@
+import copy
 import os
 import re
+from collections.abc import Generator
+from contextlib import suppress
 from pathlib import Path
+from typing import Self
 
 from streamerate import stream
 
@@ -226,6 +230,14 @@ class CheckstyleToken(Token):
     def __str__(self) -> str:
         return f"<{'/' * int(not self.is_starting)}{self.text}>"
 
+    def de_tokenize(self) -> str:
+        """
+        Return none tokenized representation that in this case is the empty string,
+        as checkstyle tokens are not part of the original source code.
+        :return:
+        """
+        return ""
+
 
 class ProcessedSourceFile:
     """
@@ -250,6 +262,7 @@ class ProcessedSourceFile:
         self.report = report
         self.checkstyle_tokens = []
 
+        # TODO: check if this is really needed, I don't think so
         # insert deltas of indentation after linebreak
         self._insert_deltas_on_linebreaks()
 
@@ -270,6 +283,72 @@ class ProcessedSourceFile:
         :return: The processed string representation of the Java file.
         """
         return f"{' '.join(map(str, self.tokens))}\n"
+
+    def tokens_between_violations(self) -> Generator[list[list[Token]], None, None]:
+        """
+        Get all tokens between two violation tags.
+        :return: Returns a generator which yields all tokens between two violation tags.
+        """
+        violation_tag_pairs = zip(
+            self.checkstyle_tokens[::2], self.checkstyle_tokens[1::2], strict=True
+        )
+        for violation_tag_pair in violation_tag_pairs:
+            start, end = violation_tag_pair
+            yield self.tokens[self.tokens.index(start) : self.tokens.index(end) + 1]
+
+    def violations_with_ctx(
+        self, context: int = 2
+    ) -> Generator[list[Token], None, None]:
+        """
+        Get all tokens within a specified around a violation.
+        :param context: The specified line context.
+        :return: Returns the tokens within the specified context around a violation.
+        """
+        for violated_tokens in self.tokens_between_violations():
+            ctx_start_line = max(1, violated_tokens[0].line - context)
+            ctx_end_line = min(self.tokens[-1].line, violated_tokens[-1].line + context)
+            yield list(
+                stream(self.tokens).filter(
+                    lambda t, s=ctx_start_line, e=ctx_end_line: s <= t.line <= e
+                )
+            )
+
+    def get_fixes_for(
+        self, fixes: list[list[str]], violation: (CheckstyleToken, CheckstyleToken)
+    ) -> Generator[Self, None, None]:
+        """
+        Get all possible fixes for a violation.
+        Replace the tokens between the violation tags with the fixes.
+        If fixes longer than tokens between tokens, just insert the first n tokens.
+        If vice versa just fill with old tokens.
+        Like styler does.
+        :param fixes: The possible fixes.
+        :param violation: The violation to be tackled.
+        :return: Returns the processed source file with the fixes applied.
+        """
+        start, end = violation
+        start_idx = self.tokens.index(start)
+        end_idx = self.tokens.index(end)
+        tokens_between = self.tokens[start_idx : end_idx + 1]
+        possible_fixes = []
+        for fix in fixes:
+            with suppress(ValueError):
+                possible_fix = []
+                min_range = min(len(tokens_between), len(fix))
+                for i in range(min_range):
+                    # Currently, only insert whitespaces
+                    fix_token = copy.deepcopy(tokens_between[i])
+                    if isinstance(tokens_between[i], Whitespace):
+                        fix_str = Whitespace.parse_tokenized_str(fix[i])
+                        fix_token.text = fix_str
+                    possible_fix.append(fix_token)
+                if min_range < len(tokens_between):
+                    possible_fix.extend(tokens_between[min_range + 1 :])
+                possible_fixes.append(possible_fix)
+        for possible_fix in possible_fixes:
+            copy_tokens = copy.deepcopy(self.tokens)
+            copy_tokens[start_idx : end_idx + 1] = possible_fix
+            yield ProcessedSourceFile(self.file_name, copy_tokens)
 
     def __repr__(self) -> str:
         return self.tokenized_str()
@@ -462,6 +541,7 @@ def tokenize_java_code(code: str) -> list[Token]:
     )
 
 
+# TODO: Use utility function to read files
 def tokenize_dir(directory: Path) -> list[ProcessedSourceFile]:
     """
     Parses the Java files form a given directory into a list of ProcessedSourceFile.

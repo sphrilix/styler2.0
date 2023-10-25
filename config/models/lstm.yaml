@@ -1,0 +1,9 @@
+input_length: 650
+output_length: 125
+enc_emb_dim: 256
+dec_emb_dim: 256
+hidden_dim: 512
+n_layers: 1
+enc_dropout: 0.5
+dec_dropout: 0.5
+device: "cpu"
