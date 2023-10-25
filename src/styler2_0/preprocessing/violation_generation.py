@@ -569,6 +569,13 @@ def generate_n_violations(
 def filter_relevant_tokens(
     non_violated: ProcessedSourceFile, violated: ProcessedSourceFile, context: int = 2
 ) -> (str, str):
+    """
+    Filter the relevant tokens out of the non_violated and violated source file.
+    :param non_violated: The not violated source file.
+    :param violated: The violated source file.
+    :param context: The specified line context around the violation.
+    :return: Returns the filtered non_violated and violated source tokens.
+    """
     assert len(violated.checkstyle_tokens) == 2
     violated_tokens = next(violated.tokens_between_violations())
     violated_tokens_wo_checkstyle = violated_tokens[1:-1]
@@ -585,5 +592,5 @@ def filter_relevant_tokens(
             # .filter(lambda t: isinstance(t, Whitespace))
             .map(str)
         ),
-        " ".join(stream(next(violated.violations_with_ctx())).map(str)),
+        " ".join(stream(next(violated.violations_with_ctx(context))).map(str)),
     )

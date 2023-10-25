@@ -184,7 +184,7 @@ class ModelBase(nn.Module, ABC):
     ) -> "ModelBase":
         """
         This should load the model hyperparams from a config file.
-        This file should be stored in {root}/config/models/{cls.__name__}.yaml.
+        This file is stored in {root}/config/models/{cls.__name__}.yaml.
         It also sets the src_vocab, trg_vocab and where to save the checkpoints.
         :param src_vocab: The input vocabulary.
         :param trg_vocab: The output vocabulary.
