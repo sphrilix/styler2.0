@@ -1,6 +1,7 @@
 import math
 import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -231,3 +232,29 @@ class ModelBase(nn.Module, ABC):
         model = cls.build_from_config(src_vocab, trg_vocab, save.parent)
         model.load_state_dict(torch.load(save))
         return model
+
+
+@dataclass(frozen=True)
+class BeamSearchDecodingStepData:
+    """
+    Data class for beam search decoding step.
+    """
+
+    sequence: Tensor
+    state: dict[str, Tensor]
+    confidence: float
+    end_token_idx: int
+
+    def __lt__(self, other: ...) -> bool:
+        if not isinstance(other, type(self)):
+            raise ValueError(f"{other} is not of {type(self)}.")
+        return self.confidence < other.confidence
+
+    def __hash__(self) -> int:
+        return hash(self.sequence)
+
+    def __eq__(self, other: ...) -> bool:
+        return hash(self) == hash(other)
+
+    def is_sequence_finished(self) -> bool:
+        return self.sequence[-1].item() == self.end_token_idx
