@@ -3,6 +3,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as Xml
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -169,8 +170,10 @@ def n_violations_in_code(n: int, code: str, version: str, config: Path) -> None:
     :param config: Checkstyle config.
     :return:
     """
-    report = run_checkstyle_on_str(code, version, config)
-    if len(report.violations) != n:
+    # TODO: Why sometimes parse error?
+    with suppress(Xml.ParseError):
+        report = run_checkstyle_on_str(code, version, config)
+    if not report or len(report.violations) != n:
         raise WrongViolationAmountException(
             f"Expected {n} violations got {len(report.violations)}."
         )

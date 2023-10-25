@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Self
-from xml.etree.ElementTree import ParseError
 
 from streamerate import stream
 from tqdm import tqdm
@@ -187,7 +186,6 @@ class ViolationGenerator(ABC):
             NonParseableException,
             WrongViolationAmountException,
             OperationNonApplicableException,
-            ParseError,
         ),
     )
     @returns_n_violations(
