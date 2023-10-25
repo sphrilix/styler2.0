@@ -186,5 +186,10 @@ def get_sub_dirs_in_dir(directory: Path, depth: int = 1) -> list[Path]:
 
 
 def load_yaml_file(path: Path) -> dict[str, Any]:
+    """
+    Loads a yaml file to a dict.
+    :param path: The path to the yaml file.
+    :return: Returns the loaded yaml as dict.
+    """
     raw_str = read_content_of_file(path)
     return yaml.load(raw_str, Loader=SafeLoader)

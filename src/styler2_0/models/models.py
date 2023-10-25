@@ -163,27 +163,39 @@ def evaluate(
     ), "The number of model data dirs and checkpoints must be the same."
     vocabs: list[(Vocabulary, Vocabulary)] = [_load_vocabs(d) for d in model_data_dirs]
     models: list[ModelBase] = []
+
+    # Load models with given checkpoints.
     for index, checkpoint in enumerate(checkpoints):
         src_vocab, trg_vocab = vocabs[index]
         model = model.value.load_from_config(src_vocab, trg_vocab, checkpoint)
         models.append(model)
+
+    # Load meta-data from mined violations.
+    # This is required to run checkstyle.
     meta_data = json.loads(read_content_of_file(mined_violations_dir / META_DATA_EVAL))
     config = meta_data["config"]
     version = meta_data["version"]
+
     all_violation_dirs = get_sub_dirs_in_dir(mined_violations_dir)
     fixed = 0
     not_fixed = 0
     for violation in tqdm(all_violation_dirs, "Evaluating fixing of violations"):
+        # Get the violation content and run checkstyle on it.
         violation_file = get_files_in_dir(violation / "violation")[0]
         violation_content = read_content_of_file(violation_file)
         report = run_checkstyle_on_str(violation_content, version, config)
         tokens = tokenize_java_code(violation_content)
         processed_file = ProcessedSourceFile(None, tokens, report)
         possible_fixes = []
+
+        # Get the fixes from all models.
         for model in models:
             possible_fixes.extend(model.fix(processed_file, top_k))
         real_fixes = []
+
+        # Check if the fixes are valid.
         for possible_fix in possible_fixes:
+            # Check if fix compiles and passes checkstyle without violations.
             if (
                 is_parseable(possible_fix.de_tokenize())
                 and not run_checkstyle_on_str(

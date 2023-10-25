@@ -2,6 +2,7 @@ import copy
 import os
 import re
 from collections.abc import Generator
+from contextlib import suppress
 from pathlib import Path
 from typing import Self
 
@@ -230,6 +231,11 @@ class CheckstyleToken(Token):
         return f"<{'/' * int(not self.is_starting)}{self.text}>"
 
     def de_tokenize(self) -> str:
+        """
+        Return none tokenized representation that in this case is the empty string,
+        as checkstyle tokens are not part of the original source code.
+        :return:
+        """
         return ""
 
 
@@ -312,6 +318,10 @@ class ProcessedSourceFile:
     ) -> Generator[Self, None, None]:
         """
         Get all possible fixes for a violation.
+        Replace the tokens between the violation tags with the fixes.
+        If fixes longer than tokens between tokens, just insert the first n tokens.
+        If vice versa just fill with old tokens.
+        Like styler does.
         :param fixes: The possible fixes.
         :param violation: The violation to be tackled.
         :return: Returns the processed source file with the fixes applied.
@@ -322,7 +332,7 @@ class ProcessedSourceFile:
         tokens_between = self.tokens[start_idx : end_idx + 1]
         possible_fixes = []
         for fix in fixes:
-            try:
+            with suppress(ValueError):
                 possible_fix = []
                 min_range = min(len(tokens_between), len(fix))
                 for i in range(min_range):
@@ -335,8 +345,6 @@ class ProcessedSourceFile:
                 if min_range < len(tokens_between):
                     possible_fix.extend(tokens_between[min_range + 1 :])
                 possible_fixes.append(possible_fix)
-            except ValueError:
-                continue
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
             copy_tokens[start_idx : end_idx + 1] = possible_fix
