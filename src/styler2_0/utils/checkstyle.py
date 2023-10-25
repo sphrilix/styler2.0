@@ -3,7 +3,6 @@ import re
 import subprocess
 import xml.etree.ElementTree as Xml
 from collections.abc import Callable
-from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -141,8 +140,12 @@ def run_checkstyle_on_dir(
         checkstyle_cmd.split(), stdout=subprocess.PIPE
     ) as checkstyle_process:
         output = checkstyle_process.communicate()[0]
-        if checkstyle_process.returncode > 0:
-            output = b"".join(output.split(b"</checkstyle>")[0:-1]) + b"</checkstyle>"
+
+        # Remove trailing non xml content. Apparently, it seems
+        # to fix the ParserError.
+        # IDK why styler does this if and only if checkstyle
+        # terminates with an error.
+        output = b"".join(output.split(b"</checkstyle>")[0:-1]) + b"</checkstyle>"
         return _parse_checkstyle_xml_report(output)
 
 
@@ -171,8 +174,7 @@ def n_violations_in_code(n: int, code: str, version: str, config: Path) -> None:
     :return:
     """
     # TODO: Why sometimes parse error?
-    with suppress(Xml.ParseError):
-        report = run_checkstyle_on_str(code, version, config)
+    report = run_checkstyle_on_str(code, version, config)
     if not report or len(report.violations) != n:
         raise WrongViolationAmountException(
             f"Expected {n} violations got {len(report.violations)}."
