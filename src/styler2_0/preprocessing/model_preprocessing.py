@@ -8,8 +8,14 @@ from shutil import copytree
 from bidict import bidict
 from streamerate import stream
 
+from src.styler2_0.models.models import Models
+from src.styler2_0.preprocessing.model_tokenizer import (
+    ModelTokenizer,
+    SequenceTokenizer,
+)
 from src.styler2_0.preprocessing.violation_generation import Metadata
 from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
+from src.styler2_0.utils.vocab import Vocabulary
 
 VIOLATION_DIR = Path("violations/")
 TRAIN_PATH = Path("train/")
@@ -35,9 +41,14 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
-    os.makedirs(complete_train, exist_ok=True)
-    os.makedirs(complete_val, exist_ok=True)
-    os.makedirs(complete_test, exist_ok=True)
+
+    # If the splits are already built, don't rebuild them.
+    if complete_train.exists() and complete_val.exists() and complete_test.exists():
+        return
+
+    os.makedirs(complete_train)
+    os.makedirs(complete_val)
+    os.makedirs(complete_test)
 
     # Train = [0, train_percentile)
     # Val = [train_percentile, train_percentile + val_percentile)
@@ -55,7 +66,12 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         copytree(violation_dir / Path(violation), complete_test / Path(violation))
 
 
-def _build_vocab(violation_dir: Path) -> tuple[dict[int, str], dict[int, str]]:
+def _build_vocab(
+    violation_dir: Path,
+    src_tokenizer: ModelTokenizer,
+    trg_tokenizer: ModelTokenizer,
+    model: Models,
+) -> tuple[Vocabulary, Vocabulary]:
     build_vocabs_path = (
         violation_dir
         / MODEL_DATA_PATH
@@ -68,26 +84,37 @@ def _build_vocab(violation_dir: Path) -> tuple[dict[int, str], dict[int, str]]:
             build_vocabs_path / Path(violation) / DATA_JSON
         )
         metadata.append(Metadata.from_json(metadata_json_content))
-    src_vocab, trg_vocab = _get_vocabs_from_metadata(metadata)
-    save_content_to_file(
+    src_vocab, trg_vocab = _get_vocabs_from_metadata(
+        metadata, src_tokenizer, trg_tokenizer
+    )
+
+    save_path = (
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
-        / SRC_VOCAB_FILE,
-        json.dumps(src_vocab),
+        / model.name.lower()
+    )
+
+    os.makedirs(save_path, exist_ok=True)
+
+    save_content_to_file(
+        save_path / SRC_VOCAB_FILE,
+        src_vocab.to_json(),
     )
     save_content_to_file(
-        violation_dir
-        / MODEL_DATA_PATH
-        / _get_protocol_from_path(violation_dir)
-        / TRG_VOCAB_FILE,
-        json.dumps(trg_vocab),
+        save_path / TRG_VOCAB_FILE,
+        trg_vocab.to_json(),
     )
     return src_vocab, trg_vocab
 
 
 def _build_inputs_from_vocab(
-    input_dir: Path, src_vocab: bidict[int, str], trg_vocab: bidict[int, str]
+    input_dir: Path,
+    output_dir: Path,
+    src_vocab: Vocabulary,
+    trg_vocab: Vocabulary,
+    src_tokenizer: ModelTokenizer,
+    trg_tokenizer: ModelTokenizer,
 ) -> None:
     model_input = []
     ground_truth = []
@@ -96,39 +123,24 @@ def _build_inputs_from_vocab(
             read_content_of_file(input_dir / violation / DATA_JSON)
         )
 
-        # TODO: str longer than input length
-        violated_tokens = ["<SOS>"] + metadata.violated_str.split(" ") + ["<EOS>"]
-        non_violated_tokens = (
-            ["<SOS>"] + metadata.non_violated_str.split(" ") + ["<EOS>"]
-        )
-        violated_ids = " ".join(
-            str(_map_token_to_id(token, src_vocab)) for token in violated_tokens
-        )
+        violated_tokens = src_tokenizer.tokenize(metadata.violated_str)
+        non_violated_tokens = trg_tokenizer.tokenize(metadata.non_violated_str)
+
+        violated_ids = " ".join(str(src_vocab[token]) for token in violated_tokens)
         non_violated_ids = " ".join(
-            str(_map_token_to_id(token, trg_vocab)) for token in non_violated_tokens
+            str(trg_vocab[token]) for token in non_violated_tokens
         )
         model_input.append(violated_ids)
         ground_truth.append(non_violated_ids)
-    save_content_to_file(input_dir / INPUT_TXT, "\n".join(model_input))
-    save_content_to_file(input_dir / GROUND_TRUTH_TXT, "\n".join(ground_truth))
-
-
-def _load_vocab(violation_dir: Path, vocab: Path) -> bidict[int, str]:
-    vocab_path = (
-        violation_dir / MODEL_DATA_PATH / _get_protocol_from_path(violation_dir) / vocab
-    )
-    return bidict(json.loads(read_content_of_file(vocab_path)))
-
-
-def _map_token_to_id(token: str, vocab: bidict) -> int:
-    if token in vocab.inverse:
-        return vocab.inverse[token]
-    return vocab.inverse["<UNK>"]
+    save_content_to_file(output_dir / INPUT_TXT, "\n".join(model_input))
+    save_content_to_file(output_dir / GROUND_TRUTH_TXT, "\n".join(ground_truth))
 
 
 def _get_vocabs_from_metadata(
     metadata: list[Metadata],
-) -> tuple[dict[int, str], dict[int, str]]:
+    src_tokenizer: ModelTokenizer,
+    trg_tokenizer: ModelTokenizer,
+) -> (Vocabulary, Vocabulary):
     src_vocab_tokens = []
     trg_vocab_tokens = []
     src_vocab_tokens.append(VOCAB_SPECIAL_TOKEN)
@@ -139,26 +151,40 @@ def _get_vocabs_from_metadata(
     temp_src_vocab_tokens = set()
     temp_trg_vocab_tokens = set()
     for md in metadata:
-        temp_src_vocab_tokens.update(md.violated_str.split(" "))
-        temp_trg_vocab_tokens.update(md.non_violated_str.split(" "))
+        temp_src_vocab_tokens.update(src_tokenizer.get_tokens(md.violated_str))
+        temp_trg_vocab_tokens.update(trg_tokenizer.get_tokens(md.non_violated_str))
     src_vocab_tokens.append(temp_src_vocab_tokens)
     trg_vocab_tokens.append(temp_trg_vocab_tokens)
 
-    src_vocab = stream(src_vocab_tokens).flatMap().enumerate().to_dict()
-    trg_vocab = stream(trg_vocab_tokens).flatMap().enumerate().to_dict()
+    src_vocab = dict(stream(src_vocab_tokens).flatMap().enumerate().to_dict())
+    trg_vocab = dict(stream(trg_vocab_tokens).flatMap().enumerate().to_dict())
 
-    return dict(src_vocab), dict(trg_vocab)
+    return Vocabulary(bidict(src_vocab)), Vocabulary(bidict(trg_vocab))
 
 
 def _get_protocol_from_path(violation_dir: Path) -> Path:
     return Path(violation_dir.name)
 
 
-def preprocessing(project_dir: Path, splits: (float, float, float)) -> None:
+def _build_model_tokenizers(model: Models) -> tuple[ModelTokenizer, ModelTokenizer]:
+    model_data = model.value.get_model_params()
+    output_length = model_data["output_length"]
+    input_length = model_data["input_length"]
+    match model:
+        case Models.LSTM | Models.TRANSFORMER:
+            return SequenceTokenizer(input_length), SequenceTokenizer(output_length)
+        case _:
+            raise ValueError(f"Model {model} not supported")
+
+
+def preprocessing(
+    project_dir: Path, splits: (float, float, float), model: Models = Models.LSTM
+) -> None:
     """
     Build the input for the lstm model.
     :param project_dir: The directory created for each project.
     :param splits: Triple(train_percentile, val_percentile, test_percentile)
+    :param model: The model to be used.
     :return:
     """
     violation_dir = project_dir / VIOLATION_DIR
@@ -167,41 +193,82 @@ def preprocessing(project_dir: Path, splits: (float, float, float)) -> None:
     ]
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
-        src_vocab, trg_vocab = _build_vocab(protocol_violation_dir)
-
-        # Convert vocabs to bidict to be easier usable
-        src_vocab = bidict(src_vocab)
-        trg_vocab = bidict(trg_vocab)
+        src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
+        src_vocab, trg_vocab = _build_vocab(
+            protocol_violation_dir, src_tokenizer, trg_tokenizer, model
+        )
 
         # Process train examples
-        _build_inputs_from_vocab(
+        train_input_dir = (
             protocol_violation_dir
             / MODEL_DATA_PATH
             / _get_protocol_from_path(protocol_violation_dir)
-            / TRAIN_PATH,
+            / TRAIN_PATH
+        )
+        train_output_dir = (
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / model.name.lower()
+            / TRAIN_PATH
+        )
+        os.makedirs(train_output_dir, exist_ok=True)
+        _build_inputs_from_vocab(
+            train_input_dir,
+            train_output_dir,
             src_vocab,
             trg_vocab,
+            src_tokenizer,
+            trg_tokenizer,
         )
 
         # Process val examples
-        _build_inputs_from_vocab(
+        val_input_dir = (
             protocol_violation_dir
             / MODEL_DATA_PATH
             / _get_protocol_from_path(protocol_violation_dir)
-            / VAL_PATH,
+            / VAL_PATH
+        )
+        val_output_dir = (
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / model.name.lower()
+            / VAL_PATH
+        )
+        os.makedirs(val_output_dir, exist_ok=True)
+        _build_inputs_from_vocab(
+            val_input_dir,
+            val_output_dir,
             src_vocab,
             trg_vocab,
+            src_tokenizer,
+            trg_tokenizer,
         )
 
         if splits[2] > 0:
             # Process test examples
-            _build_inputs_from_vocab(
-                violation_dir
+            test_input_dir = (
+                protocol_violation_dir
                 / MODEL_DATA_PATH
-                / _get_protocol_from_path(violation_dir)
-                / TEST_PATH,
+                / _get_protocol_from_path(protocol_violation_dir)
+                / TEST_PATH
+            )
+            test_output_dir = (
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / str(model.name).lower()
+                / TEST_PATH
+            )
+            os.makedirs(test_output_dir, exist_ok=True)
+            _build_inputs_from_vocab(
+                test_input_dir,
+                test_output_dir,
                 src_vocab,
                 trg_vocab,
+                src_tokenizer,
+                trg_tokenizer,
             )
 
 
