@@ -194,8 +194,17 @@ class ModelBase(nn.Module, ABC):
         :param save: The path to store the checkpoints.
         :return: Returns the loaded model.
         """
-        params = load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
-        return cls._build_from_config(params, src_vocab, trg_vocab, save)
+        return cls._build_from_config(
+            cls.get_model_params(), src_vocab, trg_vocab, save
+        )
+
+    @classmethod
+    def get_model_params(cls) -> dict[str, ...]:
+        """
+        Get the model hyperparams.
+        :return: The hyperparams.
+        """
+        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
 
     @classmethod
     @abstractmethod
