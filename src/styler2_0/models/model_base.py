@@ -108,6 +108,7 @@ class ModelBase(nn.Module, ABC):
         :param optimizer: Optimization rule.
         :return:
         """
+        best_valid_loss = float("inf")
         for epoch in range(epochs):
             train_loss = self._fit_one_epoch(train_data, criterion, optimizer)
             valid_loss = self._eval_one_epoch(val_data, criterion)
@@ -121,7 +122,10 @@ class ModelBase(nn.Module, ABC):
                 f"|  Val. PPL: {math.exp(valid_loss):7.3f}"
             )
 
-            torch.save(self.state_dict(), self.save / f"model_{epoch}_{valid_loss}.pt")
+            torch.save(self.state_dict(), self.save / f"{self.__name__}_{epoch}.pt")
+            if valid_loss < best_valid_loss:
+                best_valid_loss = valid_loss
+                torch.save(self.state_dict(), self.save / f"{self.__name__}.pt")
 
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
