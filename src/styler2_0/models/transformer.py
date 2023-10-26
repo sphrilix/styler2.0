@@ -7,6 +7,7 @@ from torch.optim import Optimizer
 
 from src.styler2_0.models.model_base import BeamSearchDecodingStepData, ModelBase
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.preprocessing.model_tokenizer import ModelTokenizer, SequenceTokenizer
 
 
 class Transformer(ModelBase):
@@ -338,6 +339,14 @@ class Transformer(ModelBase):
             (tgt == self.src_vocab[self.trg_vocab.pad]).transpose(0, 1).to(self.device)
         )
         return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
+
+    def _inp_tokenizer(self) -> ModelTokenizer:
+        return SequenceTokenizer(
+            self.input_length,
+            self.src_vocab.sos,
+            self.src_vocab.eos,
+            self.src_vocab.pad,
+        )
 
 
 class PositionalEncoding(nn.Module):

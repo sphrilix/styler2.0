@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from torch import Tensor, long, nn
+from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
 from src.styler2_0.utils.utils import load_yaml_file
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 
 
 class ModelBase(nn.Module, ABC):
@@ -145,10 +146,13 @@ class ModelBase(nn.Module, ABC):
         :return: The fixed source file.
         """
         assert len(src.report.violations) == 1
-        affected_tokens = list(src.violations_with_ctx())[0]
-        input_ids = [self.src_vocab.stoi(str(t)) for t in affected_tokens]
-        src_tenor = self._process_predict_input(input_ids)
-        possible_fixes = self._fix(src_tenor, top_k)
+        affected_tokens = map(str, list(src.violations_with_ctx())[0])
+        input_ids = [
+            self.src_vocab.stoi(str(t))
+            for t in self._inp_tokenizer().tokenize(" ".join(affected_tokens))
+        ]
+        src_tensor = Tensor(input_ids).long().to(self.device)
+        possible_fixes = self._fix(src_tensor, top_k)
         return list(
             src.get_fixes_for(
                 possible_fixes, (src.checkstyle_tokens[0], src.checkstyle_tokens[-1])
@@ -164,22 +168,6 @@ class ModelBase(nn.Module, ABC):
         :return: Returns the output Tensors and the confidences.
         """
         pass
-
-    def _process_predict_input(self, inp: list[int]) -> Tensor:
-        """
-        Process the input for the predict method.
-        :param inp: The input.
-        :return: The processed input.
-        """
-        inp = (
-            [self.src_vocab[self.src_vocab.sos]]
-            + inp[: self.input_length - 1]
-            + [self.src_vocab[self.src_vocab.eos]]
-        )
-        inp = inp + [self.src_vocab[self.src_vocab.pad]] * (
-            self.input_length - len(inp)
-        )
-        return torch.tensor(inp, dtype=long, device=self.device)
 
     @classmethod
     def build_from_config(
@@ -241,6 +229,14 @@ class ModelBase(nn.Module, ABC):
         model = cls.build_from_config(src_vocab, trg_vocab, save.parent)
         model.load_state_dict(torch.load(save))
         return model
+
+    @abstractmethod
+    def _inp_tokenizer(self) -> ModelTokenizer:
+        """
+        The tokenizer for the input.
+        :return: Returns the tokenizer for inputs.
+        """
+        pass
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ from torch.types import Device
 
 from src.styler2_0.models.model_base import BeamSearchDecodingStepData, ModelBase
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.preprocessing.model_tokenizer import ModelTokenizer, SequenceTokenizer
 
 
 class LSTMEncoder(nn.Module):
@@ -422,3 +423,11 @@ class LSTM(ModelBase):
         loss = criterion(output, trg)
 
         return loss.item()
+
+    def _inp_tokenizer(self) -> ModelTokenizer:
+        return SequenceTokenizer(
+            self.input_length,
+            self.src_vocab.sos,
+            self.src_vocab.eos,
+            self.src_vocab.pad,
+        )
