@@ -45,8 +45,7 @@ class GitContextManager:
         return self._git
 
     def __exit__(self, exc_type: type, exc_val: Exception, exc_tb: type) -> None:
-        # self._git.checkout(self._current_commit.hash)
-        pass
+        self._git.checkout(self._current_commit.hash)
 
 
 @dataclass(eq=True)
