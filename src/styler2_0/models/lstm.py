@@ -1,5 +1,4 @@
 import random
-from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -7,7 +6,7 @@ from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.types import Device
 
-from src.styler2_0.models.model_base import ModelBase
+from src.styler2_0.models.model_base import BeamSearchDecodingStepData, ModelBase
 from src.styler2_0.utils.vocab import Vocabulary
 
 
@@ -292,8 +291,7 @@ class LSTM(ModelBase):
         search_space = [
             BeamSearchDecodingStepData(
                 torch.tensor([self.trg_vocab.stoi(self.trg_vocab.sos)]).to(self.device),
-                hidden,
-                cell,
+                {"hidden": hidden, "cell": cell},
                 1.0,  # <SOS> is always the first token
                 self.trg_vocab.stoi(self.trg_vocab.eos),
             )
@@ -316,7 +314,9 @@ class LSTM(ModelBase):
 
                 # squeeze to add batch dimension to fit into decoding cell
                 inp = sample.sequence[-1].unsqueeze(0)
-                output, hidden, cell = self.decoder(inp, sample.hidden, sample.cell)
+                output, hidden, cell = self.decoder(
+                    inp, sample.state["hidden"], sample.state["cell"]
+                )
 
                 # Mask prob <UNK> token to negative infinity
                 output = output + unk_mask
@@ -333,8 +333,7 @@ class LSTM(ModelBase):
                     new_search_space.add(
                         BeamSearchDecodingStepData(
                             torch.cat((sample.sequence, index.unsqueeze(0)), dim=0),
-                            hidden,
-                            cell,
+                            {"hidden": hidden, "cell": cell},
                             sample.confidence * conf.item(),  # Calculate new confidence
                             sample.end_token_idx,
                         )
@@ -423,30 +422,3 @@ class LSTM(ModelBase):
         loss = criterion(output, trg)
 
         return loss.item()
-
-
-@dataclass(frozen=True)
-class BeamSearchDecodingStepData:
-    """
-    Data class for beam search decoding step.
-    """
-
-    sequence: Tensor
-    hidden: Tensor
-    cell: Tensor
-    confidence: float
-    end_token_idx: int
-
-    def __lt__(self, other: ...) -> bool:
-        if not isinstance(other, type(self)):
-            raise ValueError(f"{other} is not of {type(self)}.")
-        return self.confidence < other.confidence
-
-    def __hash__(self) -> int:
-        return hash(self.sequence)
-
-    def __eq__(self, other: ...) -> bool:
-        return hash(self) == hash(other)
-
-    def is_sequence_finished(self) -> bool:
-        return self.sequence[-1].item() == self.end_token_idx
