@@ -41,9 +41,14 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
-    os.makedirs(complete_train, exist_ok=True)
-    os.makedirs(complete_val, exist_ok=True)
-    os.makedirs(complete_test, exist_ok=True)
+
+    # If the splits are already built, don't rebuild them.
+    if complete_train.exists() and complete_val.exists() and complete_test.exists():
+        return
+
+    os.makedirs(complete_train)
+    os.makedirs(complete_val)
+    os.makedirs(complete_test)
 
     # Train = [0, train_percentile)
     # Val = [train_percentile, train_percentile + val_percentile)
@@ -62,7 +67,10 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
 
 
 def _build_vocab(
-    violation_dir: Path, src_tokenizer: ModelTokenizer, trg_tokenizer: ModelTokenizer
+    violation_dir: Path,
+    src_tokenizer: ModelTokenizer,
+    trg_tokenizer: ModelTokenizer,
+    model: Models,
 ) -> tuple[Vocabulary, Vocabulary]:
     build_vocabs_path = (
         violation_dir
@@ -79,18 +87,22 @@ def _build_vocab(
     src_vocab, trg_vocab = _get_vocabs_from_metadata(
         metadata, src_tokenizer, trg_tokenizer
     )
-    save_content_to_file(
+
+    save_path = (
         violation_dir
         / MODEL_DATA_PATH
         / _get_protocol_from_path(violation_dir)
-        / SRC_VOCAB_FILE,
+        / model.name.lower()
+    )
+
+    os.makedirs(save_path, exist_ok=True)
+
+    save_content_to_file(
+        save_path / SRC_VOCAB_FILE,
         src_vocab.to_json(),
     )
     save_content_to_file(
-        violation_dir
-        / MODEL_DATA_PATH
-        / _get_protocol_from_path(violation_dir)
-        / TRG_VOCAB_FILE,
+        save_path / TRG_VOCAB_FILE,
         trg_vocab.to_json(),
     )
     return src_vocab, trg_vocab
@@ -98,6 +110,7 @@ def _build_vocab(
 
 def _build_inputs_from_vocab(
     input_dir: Path,
+    output_dir: Path,
     src_vocab: Vocabulary,
     trg_vocab: Vocabulary,
     src_tokenizer: ModelTokenizer,
@@ -110,7 +123,6 @@ def _build_inputs_from_vocab(
             read_content_of_file(input_dir / violation / DATA_JSON)
         )
 
-        # TODO: str longer than input length
         violated_tokens = src_tokenizer.tokenize(metadata.violated_str)
         non_violated_tokens = trg_tokenizer.tokenize(metadata.non_violated_str)
 
@@ -120,8 +132,8 @@ def _build_inputs_from_vocab(
         )
         model_input.append(violated_ids)
         ground_truth.append(non_violated_ids)
-    save_content_to_file(input_dir / INPUT_TXT, "\n".join(model_input))
-    save_content_to_file(input_dir / GROUND_TRUTH_TXT, "\n".join(ground_truth))
+    save_content_to_file(output_dir / INPUT_TXT, "\n".join(model_input))
+    save_content_to_file(output_dir / GROUND_TRUTH_TXT, "\n".join(ground_truth))
 
 
 def _get_vocabs_from_metadata(
@@ -183,15 +195,27 @@ def preprocessing(
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
         src_vocab, trg_vocab = _build_vocab(
-            protocol_violation_dir, src_tokenizer, trg_tokenizer
+            protocol_violation_dir, src_tokenizer, trg_tokenizer, model
         )
 
         # Process train examples
-        _build_inputs_from_vocab(
+        train_input_dir = (
             protocol_violation_dir
             / MODEL_DATA_PATH
             / _get_protocol_from_path(protocol_violation_dir)
-            / TRAIN_PATH,
+            / TRAIN_PATH
+        )
+        train_output_dir = (
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / model.name.lower()
+            / TRAIN_PATH
+        )
+        os.makedirs(train_output_dir, exist_ok=True)
+        _build_inputs_from_vocab(
+            train_input_dir,
+            train_output_dir,
             src_vocab,
             trg_vocab,
             src_tokenizer,
@@ -199,11 +223,23 @@ def preprocessing(
         )
 
         # Process val examples
-        _build_inputs_from_vocab(
+        val_input_dir = (
             protocol_violation_dir
             / MODEL_DATA_PATH
             / _get_protocol_from_path(protocol_violation_dir)
-            / VAL_PATH,
+            / VAL_PATH
+        )
+        val_output_dir = (
+            protocol_violation_dir
+            / MODEL_DATA_PATH
+            / _get_protocol_from_path(protocol_violation_dir)
+            / model.name.lower()
+            / VAL_PATH
+        )
+        os.makedirs(val_output_dir, exist_ok=True)
+        _build_inputs_from_vocab(
+            val_input_dir,
+            val_output_dir,
             src_vocab,
             trg_vocab,
             src_tokenizer,
@@ -212,11 +248,23 @@ def preprocessing(
 
         if splits[2] > 0:
             # Process test examples
-            _build_inputs_from_vocab(
-                violation_dir
+            test_input_dir = (
+                protocol_violation_dir
                 / MODEL_DATA_PATH
-                / _get_protocol_from_path(violation_dir)
-                / TEST_PATH,
+                / _get_protocol_from_path(protocol_violation_dir)
+                / TEST_PATH
+            )
+            test_output_dir = (
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / str(model.name).lower()
+                / TEST_PATH
+            )
+            os.makedirs(test_output_dir, exist_ok=True)
+            _build_inputs_from_vocab(
+                test_input_dir,
+                test_output_dir,
                 src_vocab,
                 trg_vocab,
                 src_tokenizer,

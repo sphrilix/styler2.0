@@ -6,7 +6,6 @@ class ModelTokenizer(ABC):
         """
         Tokenize the given text.
         output: [seq_len]
-        :param is_inp: specify whether the text is an input or an output.
         :param text: The text to be prepared.
         :return: Returns the tokens.
         """
