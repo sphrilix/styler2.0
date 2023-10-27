@@ -114,6 +114,7 @@ class CheckstyleFileReport:
 
 
 def find_checkstyle_config(directory: Path) -> Path:
+    print(directory)
     for subdir, _, files in os.walk(directory):
         for file in files:
             if CHECKSTYLE_CONF_REG.match(file):

@@ -143,7 +143,7 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
 
 
 def evaluate(
-    model: Models,
+    model_type: Models,
     mined_violations_dir: Path,
     model_data_dirs: list[Path],
     checkpoints: list[Path],
@@ -152,7 +152,7 @@ def evaluate(
     """
     Evaluate the given models (all the same type) combined on the mined violations
     (Same as styler). Mined that checkpoints and model_data_dirs are in the same order.
-    :param model:
+    :param model_type:
     :param mined_violations_dir:
     :param model_data_dirs:
     :param checkpoints:
@@ -168,7 +168,7 @@ def evaluate(
     # Load models with given checkpoints.
     for index, checkpoint in enumerate(checkpoints):
         src_vocab, trg_vocab = vocabs[index]
-        model = model.value.load_from_config(src_vocab, trg_vocab, checkpoint)
+        model = model_type.value.load_from_config(src_vocab, trg_vocab, checkpoint)
         models.append(model)
 
     # Load meta-data from mined violations.

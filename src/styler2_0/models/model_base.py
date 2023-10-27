@@ -126,10 +126,16 @@ class ModelBase(nn.Module, ABC):
                 f"|  Val. PPL: {math.exp(valid_loss):7.3f}"
             )
 
-            torch.save(self.state_dict(), self.save / f"{self.__name__}_{epoch}.pt")
+            torch.save(
+                self.state_dict(),
+                self.save / f"{self.__class__.__name__.lower()}_{epoch}.pt",
+            )
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
-                torch.save(self.state_dict(), self.save / f"{self.__name__}.pt")
+                torch.save(
+                    self.state_dict(),
+                    self.save / f"{self.__class__.__name__.lower()}.pt",
+                )
 
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
