@@ -1,7 +1,8 @@
+import json
 import math
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
@@ -9,10 +10,10 @@ from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
+from src.styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
-from src.styler2_0.utils.utils import load_yaml_file
+from src.styler2_0.utils.utils import load_yaml_file, save_content_to_file
 from src.styler2_0.utils.vocab import Vocabulary
-from styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 
 
 class ModelBase(nn.Module, ABC):
@@ -23,6 +24,7 @@ class ModelBase(nn.Module, ABC):
     CURR_DIR = Path(os.path.dirname(os.path.relpath(__file__)))
     CONFIGS_PATH = CURR_DIR / Path("../../../config/models/")
     SAVE_PATH = CURR_DIR / Path("../../../models/")
+    TRAIN_STATS_FILE = "train_stats.json"
 
     def __init__(
         self,
@@ -112,10 +114,16 @@ class ModelBase(nn.Module, ABC):
         :param optimizer: Optimization rule.
         :return:
         """
+        train_stats = TrainStats(0, [])
         best_valid_loss = float("inf")
         for epoch in range(epochs):
             train_loss = self._fit_one_epoch(train_data, criterion, optimizer)
             valid_loss = self._eval_one_epoch(val_data, criterion)
+
+            # Update stats
+            epoch_stats = EpochStats(epoch, train_loss, valid_loss)
+            train_stats.epoch_stats.append(epoch_stats)
+
             print(f"Epoch: {epoch + 1:02}")
             print(
                 f"\tTrain Loss: {train_loss:.3f} "
@@ -136,6 +144,13 @@ class ModelBase(nn.Module, ABC):
                     self.state_dict(),
                     self.save / f"{self.__class__.__name__.lower()}.pt",
                 )
+
+                train_stats.best_epoch = epoch
+
+            # Save stats after every epoch
+            save_content_to_file(
+                self.save / self.TRAIN_STATS_FILE, train_stats.to_json()
+            )
 
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
@@ -273,3 +288,30 @@ class BeamSearchDecodingStepData:
 
     def is_sequence_finished(self) -> bool:
         return self.sequence[-1].item() == self.end_token_idx
+
+
+@dataclass(frozen=True, eq=True)
+class EpochStats:
+    """
+    Data class for epoch stats.
+    """
+
+    epoch: int
+    train_loss: float
+    valid_loss: float
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+
+@dataclass(eq=True)
+class TrainStats:
+    """
+    Data class for training stats.
+    """
+
+    best_epoch: int
+    epoch_stats: list[EpochStats]
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
