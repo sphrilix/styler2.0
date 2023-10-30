@@ -14,4 +14,4 @@ echo "Training all models"
 source scripts/train_all_models.sh "$output_dir"/model_data
 
 echo "Evaluating all models"
-source scripts/eval_all_models_on_all_protocols.sh "$output_dir"/mined_violations
+source scripts/eval_all_models_on_all_protocols.sh "$output_dir"/mined_violations "$output_dir"
