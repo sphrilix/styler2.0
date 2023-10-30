@@ -4,6 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import time
 
 import torch
 from torch import Tensor, nn
@@ -301,6 +302,10 @@ class EpochStats:
     valid_loss: float
 
     def to_json(self) -> str:
+        """
+        Convert to json.
+        :return: Returns the json string.
+        """
         return json.dumps(asdict(self))
 
 
@@ -312,6 +317,15 @@ class TrainStats:
 
     best_epoch: int
     epoch_stats: list[EpochStats]
+    start_time: int = int(time())
+    end_time: int = int(time())
 
     def to_json(self) -> str:
+        """
+        Convert to json.
+        :return: Returns the json string.
+        """
+
+        # Update end time every time when stats are saved
+        self.end_time = int(time())
         return json.dumps(asdict(self))

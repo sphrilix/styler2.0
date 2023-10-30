@@ -50,12 +50,11 @@ class Tasks(Enum):
 
 def _run_evaluation(
     model: Models,
+    project_dir: Path,
     mined_violation_dir: Path,
-    model_data_dirs: list[Path],
-    checkpoints: list[Path],
     top_k: int,
 ) -> None:
-    evaluate(model, mined_violation_dir, model_data_dirs, checkpoints, top_k)
+    evaluate(model, mined_violation_dir, project_dir, top_k)
 
 
 def main() -> int:
@@ -83,9 +82,8 @@ def main() -> int:
         case Tasks.EVAL:
             _run_evaluation(
                 parsed_args.model,
+                parsed_args.project_dir,
                 parsed_args.mined_violations_dir,
-                parsed_args.model_data_dirs,
-                parsed_args.checkpoints,
                 parsed_args.top_k,
             )
         case _:
@@ -217,10 +215,7 @@ def _set_up_arg_parser() -> ArgumentParser:
 
     # Set up arguments for evaluation
     eval_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
-    eval_sub_parser.add_argument("--checkpoints", type=Path, nargs="+", required=True)
-    eval_sub_parser.add_argument(
-        "--model_data_dirs", type=Path, nargs="+", required=True
-    )
+    eval_sub_parser.add_argument("--project_dir", type=Path, required=True)
     eval_sub_parser.add_argument("--top_k", type=int, default=5)
     eval_sub_parser.add_argument("--mined_violations_dir", type=Path, required=True)
 

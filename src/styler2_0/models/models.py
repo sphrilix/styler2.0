@@ -1,5 +1,8 @@
 import json
+import os
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+from itertools import groupby
 from pathlib import Path
 
 from bidict import bidict
@@ -12,13 +15,15 @@ from tqdm import tqdm
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
 from src.styler2_0.models.transformer import Transformer
-from src.styler2_0.utils.checkstyle import run_checkstyle_on_str
+from src.styler2_0.preprocessing.violation_generation import Protocol
+from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir, run_checkstyle_on_str
 from src.styler2_0.utils.java import is_parseable
 from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
 from src.styler2_0.utils.utils import (
     get_files_in_dir,
     get_sub_dirs_in_dir,
     read_content_of_file,
+    save_content_to_file,
 )
 from src.styler2_0.utils.vocab import Vocabulary
 
@@ -31,8 +36,9 @@ VAL_TRG = VAL_DATA / Path("ground_truth.txt")
 SRC_VOCAB_FILE = Path("src_vocab.txt")
 TRG_VOCAB_FILE = Path("trg_vocab.txt")
 CHECKPOINT_FOLDER = Path("checkpoints")
-BEST_MODEL = Path("best_model.pt")
+MODEL_DATA_DIR = Path("model_data")
 META_DATA_EVAL = Path("data.json")
+EVAL_DATA_PATH = Path("eval_data")
 
 
 class Models(Enum):
@@ -145,69 +151,176 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
 def evaluate(
     model_type: Models,
     mined_violations_dir: Path,
-    model_data_dirs: list[Path],
-    checkpoints: list[Path],
+    project_dir: Path,
     top_k: int = 5,
 ) -> None:
     """
-    Evaluate the given models (all the same type) combined on the mined violations
-    (Same as styler). Mined that checkpoints and model_data_dirs are in the same order.
-    :param model_type:
-    :param mined_violations_dir:
-    :param model_data_dirs:
-    :param checkpoints:
-    :param top_k:
+    Evaluate the given model combined (all protocols) on the mined violations
+    (Same as styler).
+    :param mined_violations_dir: The directory of the mined violations.
+    :param model_type: The model type to be evaluated.
+    :param project_dir: The processed project dir.
+    :param top_k: The param for the top k accuracy.
     :return:
     """
-    assert len(model_data_dirs) == len(
-        checkpoints
-    ), "The number of model data dirs and checkpoints must be the same."
-    vocabs: list[(Vocabulary, Vocabulary)] = [_load_vocabs(d) for d in model_data_dirs]
-    models: list[ModelBase] = []
+    eval_data_dir = project_dir / EVAL_DATA_PATH
+    os.makedirs(eval_data_dir, exist_ok=True)
 
-    # Load models with given checkpoints.
-    for index, checkpoint in enumerate(checkpoints):
-        src_vocab, trg_vocab = vocabs[index]
-        model = model_type.value.load_from_config(src_vocab, trg_vocab, checkpoint)
-        models.append(model)
-
-    # Load meta-data from mined violations.
-    # This is required to run checkstyle.
+    protocols = [p.name.lower() for p in Protocol]
     meta_data = json.loads(read_content_of_file(mined_violations_dir / META_DATA_EVAL))
     config = meta_data["config"]
     version = meta_data["version"]
 
     all_violation_dirs = get_sub_dirs_in_dir(mined_violations_dir)
-    fixed = 0
-    not_fixed = 0
-    for violation in tqdm(all_violation_dirs, "Evaluating fixing of violations"):
-        # Get the violation content and run checkstyle on it.
-        violation_file = get_files_in_dir(violation / "violation")[0]
-        violation_content = read_content_of_file(violation_file)
-        report = run_checkstyle_on_str(violation_content, version, config)
-        tokens = tokenize_java_code(violation_content)
-        processed_file = ProcessedSourceFile(None, tokens, report)
-        possible_fixes = []
+    fix_stats = []
+    for protocol in protocols:
+        model_data_dir = (
+            project_dir / MODEL_DATA_DIR / protocol / model_type.name.lower()
+        )
+        src_vocab, trg_vocab = _load_vocabs(model_data_dir)
+        model = model_type.value.load_from_config(
+            src_vocab,
+            trg_vocab,
+            model_data_dir / CHECKPOINT_FOLDER / f"{model_type.name.lower()}.pt",
+        )
 
-        # Get the fixes from all models.
-        for model in models:
-            possible_fixes.extend(model.fix(processed_file, top_k))
-        real_fixes = []
+        for violation in tqdm(
+            all_violation_dirs,
+            f"Evaluating fixing of violations {model_type.name} trained on {protocol}",
+        ):
+            # Run checkstyle on the violation dir in order to set the path in the
+            # report. This is needed to later identify the fixed violations across
+            # protocols. As there is only one file in the violation dir, we can
+            # take the first report.
+            violation_dir = violation / "violation"
+            report = next(iter(run_checkstyle_on_dir(violation_dir, version, config)))
+            violation_type = next(iter(report.violations)).type
+            violated_file = str(report.path)
 
-        # Check if the fixes are valid.
-        for possible_fix in possible_fixes:
-            # Check if fix compiles and passes checkstyle without violations.
-            if (
-                is_parseable(possible_fix.de_tokenize())
-                and not run_checkstyle_on_str(
-                    possible_fix.de_tokenize(), version, config
-                ).violations
-            ):
-                real_fixes.append(possible_fix)
-        if real_fixes:
-            print("fixed")
-            fixed += 1
-        else:
-            print("not fixed")
-            not_fixed += 1
-    print(f"Fixed: {fixed}, Not fixed: {not_fixed}")
+            # Process the file to be fed to the model.
+            violation_content = read_content_of_file(get_files_in_dir(violation_dir)[0])
+            tokens = tokenize_java_code(violation_content)
+            processed_file = ProcessedSourceFile(None, tokens, report)
+
+            # Get the possible fixes, by calling fix on the model.
+            possible_fixes = model.fix(processed_file, top_k)
+
+            # Check if the fixes are valid.
+            real_fixes = []
+            for possible_fix in possible_fixes:
+                # Check if fix compiles and passes checkstyle without violations.
+                if (
+                    is_parseable(possible_fix.de_tokenize())
+                    and not run_checkstyle_on_str(
+                        possible_fix.de_tokenize(), version, config
+                    ).violations
+                ):
+                    real_fixes.append(possible_fix)
+            if real_fixes:
+                shortest = min(real_fixes, key=lambda x: len(x.de_tokenize()))
+                fix_stat = FixStats(
+                    violated_file,
+                    violation_type.value,
+                    protocol,
+                    True,
+                    len(shortest.de_tokenize()),
+                )
+            else:
+                fix_stat = FixStats(
+                    violated_file, violation_type.value, protocol, False
+                )
+            fix_stats.append(fix_stat)
+    eval_stats = EvalStats(fix_stats)
+    save_content_to_file(
+        eval_data_dir / f"{model_type.name.lower()}_eval_stats.json",
+        eval_stats.to_json(),
+    )
+
+
+@dataclass(eq=True, frozen=True)
+class FixStats:
+    """
+    The stats of a fix.
+    """
+
+    violated_file: str
+    violation_type: str
+    protocol: str
+    fixed: bool
+    len_of_fix: int = field(default=-1)
+
+
+class EvalStats:
+    """
+    The evaluation stats.
+    """
+
+    def __init__(self, fix_stats: list[FixStats]):
+        """
+        Init eval stats.
+        :param fix_stats: The fix stats collected from the evaluation.
+        """
+        self.grouped_by_violated_file = {
+            k: list(vs) for k, vs in groupby(fix_stats, lambda s: s.violated_file)
+        }
+        self.protocols = {s.protocol for s in fix_stats}
+        self.all_violation_types = {s.violation_type for s in fix_stats}
+
+    def _fixed_by_any_model(self) -> list[str]:
+        """
+        Returns the files that were fixed by any model.
+        :return: The files that were fixed by any model.
+        """
+        return [
+            file
+            for file, stats in self.grouped_by_violated_file.items()
+            if any(s.fixed for s in stats)
+        ]
+
+    def macro_acc(self) -> float:
+        """
+        Returns the macro accuracy.
+        :return: The macro accuracy.
+        """
+        return len(self._fixed_by_any_model()) / len(self.grouped_by_violated_file)
+
+    def micro_acc(self) -> dict[str, float]:
+        """
+        Returns the micro accuracy per protocol.
+        :return: The micro accuracy per protocol.
+        """
+        return {
+            protocol: len(self._fixed_by_protocol(protocol))
+            / len(self.grouped_by_violated_file)
+            for protocol in self.protocols
+        }
+
+    def _fixed_by_protocol(self, protocol: str) -> list[str]:
+        """
+        Returns the files that were fixed by the given protocol.
+        :param protocol: The protocol.
+        :return: The files that were fixed by the given protocol.
+        """
+        return list(
+            stream(self.grouped_by_violated_file.items())
+            .flatMap(lambda x: stream(x[1]).map(lambda s: (x[0], s)))
+            .filter(lambda x: x[1].protocol == protocol and x[1].fixed)
+            .map(lambda f, _: f)
+            .to_list()
+        )
+
+    def to_json(self) -> str:
+        """
+        Returns the json representation of the eval stats.
+        :return: The json representation of the eval stats.
+        """
+        return json.dumps(
+            {
+                "macro_acc": self.macro_acc(),
+                "micro_acc": self.micro_acc(),
+                "stats": {
+                    p: [asdict(s) for s in ss]
+                    for p, ss in self.grouped_by_violated_file.items()
+                },
+            }
+        )
