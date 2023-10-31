@@ -99,6 +99,8 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     config = parsed_args.config
     version = parsed_args.version
 
+    os.makedirs(save, exist_ok=True)
+
     if not config:
         config = find_checkstyle_config(source)
 
