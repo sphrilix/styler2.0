@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 
 class ModelTokenizer(ABC):
+    """
+    Base class for model specific tokenizers.
+    """
+
     def tokenize(self, text: str) -> list[str]:
         """
         Tokenize the given text.
@@ -31,6 +35,10 @@ class ModelTokenizer(ABC):
 
 
 class SequenceTokenizer(ModelTokenizer):
+    """
+    Sequence tokenizer for sequential models like Transformer and RNNs.
+    """
+
     def __init__(
         self,
         max_length: int,
