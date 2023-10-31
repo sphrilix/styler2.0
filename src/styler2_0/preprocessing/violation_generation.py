@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Self
+from xml.etree.ElementTree import ParseError
 
 from streamerate import stream
 from tqdm import tqdm
@@ -264,27 +265,30 @@ class ViolationGenerator(ABC):
         violated_dict = dict(
             stream(valid_pairs).map(lambda p: p[1][1]).enumerate().to_dict()
         )
-        reports_with_id = run_checkstyle_on_strs(
-            violated_dict, self.checkstyle_version, self.checkstyle_config
-        )
 
-        # Get generated instances with exactly 1 violation
-        valid_violations: list[(Path, (str, str))] = []
-        for idx, report in reports_with_id.items():
-            if len(report.violations) == 1:
-                valid_violations.append(valid_pairs[idx])
-
-        # Save generated violations
-        for current_file, (violated, non_violated) in valid_violations:
-            current_save_path = self.save_path / Path(str(valid_violations_count))
-            os.makedirs(current_save_path, exist_ok=True)
-            non_violated_file_name = Path(current_file.name)
-            violated_file_name = Path(f"VIOLATED_{current_file.name}")
-            save_content_to_file(
-                current_save_path / non_violated_file_name, non_violated
+        # Checkstyle report cannot be parsed skip the batch.
+        with suppress(ParseError):
+            reports_with_id = run_checkstyle_on_strs(
+                violated_dict, self.checkstyle_version, self.checkstyle_config
             )
-            save_content_to_file(current_save_path / violated_file_name, violated)
-            valid_violations_count += 1
+
+            # Get generated instances with exactly 1 violation
+            valid_violations: list[(Path, (str, str))] = []
+            for idx, report in reports_with_id.items():
+                if len(report.violations) == 1:
+                    valid_violations.append(valid_pairs[idx])
+
+            # Save generated violations
+            for current_file, (violated, non_violated) in valid_violations:
+                current_save_path = self.save_path / Path(str(valid_violations_count))
+                os.makedirs(current_save_path, exist_ok=True)
+                non_violated_file_name = Path(current_file.name)
+                violated_file_name = Path(f"VIOLATED_{current_file.name}")
+                save_content_to_file(
+                    current_save_path / non_violated_file_name, non_violated
+                )
+                save_content_to_file(current_save_path / violated_file_name, violated)
+                valid_violations_count += 1
 
         return valid_violations_count
 
