@@ -85,3 +85,10 @@ class Vocabulary:
                 )
             )
         )
+
+    def to_json(self) -> str:
+        """
+        Convert the vocabulary to a JSON string.
+        :return: Returns the JSON string.
+        """
+        return json.dumps({str(k): v for k, v in self._vocab.items()})

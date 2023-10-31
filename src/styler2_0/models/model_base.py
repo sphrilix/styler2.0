@@ -1,16 +1,18 @@
 import math
 import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from torch import Tensor, long, nn
+from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
 from src.styler2_0.utils.utils import load_yaml_file
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 
 
 class ModelBase(nn.Module, ABC):
@@ -29,12 +31,14 @@ class ModelBase(nn.Module, ABC):
         src_vocab: Vocabulary,
         trg_vocab: Vocabulary,
         save: Path,
+        device: str,
     ) -> None:
         self.input_length = input_length
         self.output_length = output_length
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
         self.save = save
+        self.device = device
         os.makedirs(self.save, exist_ok=True)
         super().__init__()
 
@@ -142,10 +146,13 @@ class ModelBase(nn.Module, ABC):
         :return: The fixed source file.
         """
         assert len(src.report.violations) == 1
-        affected_tokens = list(src.violations_with_ctx())[0]
-        input_ids = [self.src_vocab.stoi(str(t)) for t in affected_tokens]
-        src_tenor = self._process_predict_input(input_ids)
-        possible_fixes = self._fix(src_tenor, top_k)
+        affected_tokens = map(str, list(src.violations_with_ctx())[0])
+        input_ids = [
+            self.src_vocab.stoi(str(t))
+            for t in self._inp_tokenizer().tokenize(" ".join(affected_tokens))
+        ]
+        src_tensor = Tensor(input_ids).long().to(self.device)
+        possible_fixes = self._fix(src_tensor, top_k)
         return list(
             src.get_fixes_for(
                 possible_fixes, (src.checkstyle_tokens[0], src.checkstyle_tokens[-1])
@@ -162,22 +169,6 @@ class ModelBase(nn.Module, ABC):
         """
         pass
 
-    def _process_predict_input(self, inp: list[int]) -> Tensor:
-        """
-        Process the input for the predict method.
-        :param inp: The input.
-        :return: The processed input.
-        """
-        inp = (
-            [self.src_vocab[self.src_vocab.sos]]
-            + inp[: self.input_length - 1]
-            + [self.src_vocab[self.src_vocab.eos]]
-        )
-        inp = inp + [self.src_vocab[self.src_vocab.pad]] * (
-            self.input_length - len(inp)
-        )
-        return torch.tensor(inp, dtype=long, device=self.device)
-
     @classmethod
     def build_from_config(
         cls, src_vocab: Vocabulary, trg_vocab: Vocabulary, save: Path
@@ -191,8 +182,17 @@ class ModelBase(nn.Module, ABC):
         :param save: The path to store the checkpoints.
         :return: Returns the loaded model.
         """
-        params = load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
-        return cls._build_from_config(params, src_vocab, trg_vocab, save)
+        return cls._build_from_config(
+            cls.get_model_params(), src_vocab, trg_vocab, save
+        )
+
+    @classmethod
+    def get_model_params(cls) -> dict[str, ...]:
+        """
+        Get the model hyperparams.
+        :return: The hyperparams.
+        """
+        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
 
     @classmethod
     @abstractmethod
@@ -229,3 +229,37 @@ class ModelBase(nn.Module, ABC):
         model = cls.build_from_config(src_vocab, trg_vocab, save.parent)
         model.load_state_dict(torch.load(save))
         return model
+
+    @abstractmethod
+    def _inp_tokenizer(self) -> ModelTokenizer:
+        """
+        The tokenizer for the input.
+        :return: Returns the tokenizer for inputs.
+        """
+        pass
+
+
+@dataclass(frozen=True)
+class BeamSearchDecodingStepData:
+    """
+    Data class for beam search decoding step.
+    """
+
+    sequence: Tensor
+    state: dict[str, Tensor]
+    confidence: float
+    end_token_idx: int
+
+    def __lt__(self, other: ...) -> bool:
+        if not isinstance(other, type(self)):
+            raise ValueError(f"{other} is not of {type(self)}.")
+        return self.confidence < other.confidence
+
+    def __hash__(self) -> int:
+        return hash(self.sequence)
+
+    def __eq__(self, other: ...) -> bool:
+        return hash(self) == hash(other)
+
+    def is_sequence_finished(self) -> bool:
+        return self.sequence[-1].item() == self.end_token_idx

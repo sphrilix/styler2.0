@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
+from src.styler2_0.models.transformer import Transformer
 from src.styler2_0.utils.checkstyle import run_checkstyle_on_str
 from src.styler2_0.utils.java import is_parseable
 from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
@@ -42,7 +43,7 @@ class Models(Enum):
     LSTM = LSTM
     ANN = None
     NGRAM = None
-    TRANSFORMER = None
+    TRANSFORMER = Transformer
 
 
 # noinspection PyTypeChecker
@@ -127,6 +128,7 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
     #    - Criterion and optimizer from config
     protocol_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
     for model_protocol_dir in protocol_dirs:
+        model_protocol_dir = model_protocol_dir / model_type.name.lower()
         src_vocab, trg_vocab = _load_vocabs(model_protocol_dir)
 
         model = model_type.value.build_from_config(
