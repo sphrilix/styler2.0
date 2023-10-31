@@ -1,14 +1,109 @@
-= Readme
+= Styler2.0 - ReadMe
 :icons: font
-
+:toc:
 :url-poetry: https://python-poetry.org/
 :url-pre-commit: https://pre-commit.com/
+:url-styler: https://github.com/ASSERT-KTH/styler
 
+[abstract]
+Styler2.0 is an extension of link:{url-styler}["Styler: Learning Formatting Conventions to Repair Checkstyle Errors"].
+It supports different models and more types of checkstyle violations.
 
 == Dependency Management
 
 Dependencies are managed with link:{url-poetry}[`poetry`].
 You can set up a virtual environment and the dependencies with `poetry install`.
+
+== Running the application
+
+After poetry is set up, you can run the application with your preferred IDE or from the command line.
+
+=== IDE
+
+1. Open the project in your preferred IDE.
+2. Set the project interpreter to the virtual environment created by poetry.
+3. Run the application with the desired subcommand and options.
+
+=== Command Line
+
+You can run the application from the command line by using the `poetry run` command:
+
+[source,bash]
+----
+poetry run styler2_0 <subcommand> <options>
+----
+
+Replace `<subcommand>` with one of the available subcommands.
+Replace `<options>` with the desired options for the subcommand.
+For more information on the available options, use the `-h` or `--help` flag or refer to the command line parameters section.
+
+For a full run of the whole `styler2.0`-pipeline run:
+[source,bash]
+----
+source ./scripts/full_run.sh <input_dir> <output_dir>.
+----
+
+== Command Line Parameters
+
+This section explains each of the available command line parameters.
+There are six different subcommands available: `GENERATE_VIOLATIONS`, `ADAPT_THREE_GRAMS`, `PREPROCESSING`, `MINE_VIOLATIONS`, `TRAIN` and `EVAL`.
+
+=== `GENERATE_VIOLATIONS`
+
+Generate violations for a given source code.
+
+.Options
+--save SAVE:: Specify the path to save the generated violations.
+--source SOURCE:: Specify the source for generating violations.
+--config CONFIG (optional):: Path to the configuration file.
+--version VERSION (optional):: Specify the checkstyle version.
+--protocol {RANDOM,THREE_GRAM}:: Choose the protocol for generation (either "RANDOM" or "THREE_GRAM").
+--n N:: Number of violations to generate.
+--delta DELTA (optional):: Specify the time-delta in seconds after which the generation is aborted.
+
+=== `ADAPT_THREE_GRAMS`
+
+Adapt three-grams generated from the original `styler` implementation for ours.
+
+.Options
+--in_file IN_FILE:: Specify the input file for adaptation.
+--out_file OUT_FILE:: Specify the output file after adaptation.
+
+=== `PREPROCESSING`
+
+Perform preprocessing for the different models on violation files.
+
+.Options
+--project_dir PROJECT_DIR:: The project directory.
+--splits (FLOAT, FLOAT, FLOAT) (optional):: A triple specifying data splits.
+--model {TRANSFORMER, LSTM, ANN, NGRAM}:: The model to do preprocessing for.
+
+=== `MINE_VIOLATIONS`
+
+Mine a git repo for human written violations and if available their fixes.
+
+.Options
+--save SAVE:: Specify the path to save the mined data.
+--repo REPO:: Specify the repo that should be mined.
+
+=== `TRAIN`
+
+Train a model.
+
+.Options
+--path PATH:: The directory of the processed model data.
+--epochs EPOCHS:: Number how many epoch the model should be trained.
+--model {TRANSFORMER, LSTM, ANN, NGRAM}:: The model to be trained.
+
+=== `EVAL`
+
+Evaluate a model on mined violations.
+
+.Options
+--project_dir PROJECT_DIR:: The project_directory of styler2.0.
+--top_k TOP_K:: Number of how many fixes should be sampled for each violation.
+--model {TRANSFORMER, LSTM, ANN, NGRAM}:: The model to be evaluated.
+--mine_violations_dir MINED_VIOLATIONS_DIR:: The path to the mined violations.
 
 
 == Tests and Linting
@@ -19,3 +114,7 @@ Of course, you can use `make` directly, too.
 This project also uses link:{url-pre-commit}[`pre-commit`] to automatically set up Git pre-commit hooks that run the relevant code formatting and linting tools.
 You can set it up by running `poetry run pre-commit install`.
 Then the code will be automatically formatted before every commit.
+
+== Contributors
+* link:{https://github.com/sphrilix}[Maximilian Jungwirth]
+* link:{https://github.com/LuKrO2011}[Lukas Krodinger]
