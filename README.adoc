@@ -4,6 +4,8 @@
 :url-poetry: https://python-poetry.org/
 :url-pre-commit: https://pre-commit.com/
 :url-styler: https://github.com/ASSERT-KTH/styler
+:url-sphrilix: https://github.com/sphrilix
+:url-lukro: https://github.com/LuKrO2011
 
 [abstract]
 Styler2.0 is an extension of link:{url-styler}["Styler: Learning Formatting Conventions to Repair Checkstyle Errors"].
@@ -116,5 +118,5 @@ You can set it up by running `poetry run pre-commit install`.
 Then the code will be automatically formatted before every commit.
 
 == Contributors
-* link:{https://github.com/sphrilix}[Maximilian Jungwirth]
-* link:{https://github.com/LuKrO2011}[Lukas Krodinger]
+* link:{url-sphrilix}[Maximilian Jungwirth]
+* link:{url-lukro}[Lukas Krodinger]
