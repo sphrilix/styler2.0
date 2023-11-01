@@ -44,6 +44,7 @@ class ModelBase(nn.Module, ABC):
         self.device = device
         os.makedirs(self.save, exist_ok=True)
         super().__init__()
+        self.to(device)
 
     def _fit_one_epoch(
         self, data: DataLoader, criterion: nn.Module, optimizer: Optimizer
