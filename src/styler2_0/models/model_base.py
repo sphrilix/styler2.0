@@ -58,6 +58,7 @@ class ModelBase(nn.Module, ABC):
         self.train()
         epoch_loss = 0
         for batch in data:
+            batch.to(self.device)
             epoch_loss += self._fit_one_batch(batch, criterion, optimizer)
         return epoch_loss / len(data)
 
@@ -72,6 +73,7 @@ class ModelBase(nn.Module, ABC):
         epoch_loss = 0
         with torch.no_grad():
             for batch in data:
+                batch.to(self.device)
                 epoch_loss += self._eval_one_batch(batch, criterion)
         return epoch_loss / len(data)
 
