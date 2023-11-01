@@ -218,7 +218,7 @@ class ModelBase(nn.Module, ABC):
         Get the model hyperparams.
         :return: The hyperparams.
         """
-        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
+        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__.lower()}.yaml")
 
     @classmethod
     @abstractmethod
