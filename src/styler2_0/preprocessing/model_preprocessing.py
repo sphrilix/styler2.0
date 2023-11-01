@@ -11,7 +11,9 @@ from streamerate import stream
 from src.styler2_0.models.models import Models
 from src.styler2_0.preprocessing.model_tokenizer import (
     ModelTokenizer,
+    NoneTokenizer,
     SequenceTokenizer,
+    SplitByTokenizer,
 )
 from src.styler2_0.preprocessing.violation_generation import Metadata
 from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
@@ -173,6 +175,8 @@ def _build_model_tokenizers(model: Models) -> tuple[ModelTokenizer, ModelTokeniz
     match model:
         case Models.LSTM | Models.TRANSFORMER:
             return SequenceTokenizer(input_length), SequenceTokenizer(output_length)
+        case Models.ANN:
+            return SplitByTokenizer(input_length), NoneTokenizer()
         case _:
             raise ValueError(f"Model {model} not supported")
 

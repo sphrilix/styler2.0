@@ -12,6 +12,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from src.styler2_0.models.ann import ANN
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
 from src.styler2_0.models.transformer import Transformer
@@ -47,7 +48,7 @@ class Models(Enum):
     """
 
     LSTM = LSTM
-    ANN = None
+    ANN = ANN
     NGRAM = None
     TRANSFORMER = Transformer
 

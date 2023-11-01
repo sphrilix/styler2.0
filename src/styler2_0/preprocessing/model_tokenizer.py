@@ -2,10 +2,14 @@ from abc import ABC, abstractmethod
 
 
 class ModelTokenizer(ABC):
+    """
+    Base class for model tokenizers.
+    """
+
     def tokenize(self, text: str) -> list[str]:
         """
         Tokenize the given text.
-        output: [seq_len]
+        output: [max_len]
         :param text: The text to be prepared.
         :return: Returns the tokens.
         """
@@ -14,7 +18,9 @@ class ModelTokenizer(ABC):
     @abstractmethod
     def get_tokens(self, text: str) -> list[str]:
         """
-        Split the given text into tokens.
+        Split the given text into its tokens.
+        Without any post-processing, like max_length
+        or special tokens like <SOS>, <EOS> or <PAD>.
         :param text: The text to be split.
         :return: Returns the tokens.
         """
@@ -30,7 +36,27 @@ class ModelTokenizer(ABC):
         pass
 
 
-class SequenceTokenizer(ModelTokenizer):
+class SplitByTokenizer(ModelTokenizer):
+    def __init__(
+        self, max_length: int, split_by: str = " ", pad: str = "<PAD>"
+    ) -> None:
+        self._max_length = max_length
+        self._split_by = split_by
+        self._pad = pad
+
+    def get_tokens(self, text: str) -> list[str]:
+        return text.split(self._split_by)
+
+    def _process_tokens_for_inp(self, tokens: list[str]) -> list[str]:
+        tokens = tokens[: self._max_length]
+        return tokens + [self._pad] * (self._max_length - len(tokens))
+
+
+class SequenceTokenizer(SplitByTokenizer):
+    """
+    Tokenizer for Sequence Models like LSTM and Transformer.
+    """
+
     def __init__(
         self,
         max_length: int,
@@ -40,16 +66,7 @@ class SequenceTokenizer(ModelTokenizer):
     ):
         self._sos = sos
         self._eos = eos
-        self._pad = pad
-        self._max_length = max_length
-
-    def get_tokens(self, text: str) -> list[str]:
-        """
-        Split the given text into tokens.
-        :param text: The text to be split.
-        :return: Returns the tokens.
-        """
-        return text.split(" ")
+        super().__init__(max_length, " ", pad)
 
     def _process_tokens_for_inp(self, tokens: list[str]) -> list[str]:
         """
@@ -59,4 +76,30 @@ class SequenceTokenizer(ModelTokenizer):
         """
         tokens = [self._sos] + tokens[: self._max_length - 2] + [self._eos]
         tokens = tokens + [self._pad] * (self._max_length - len(tokens))
+        return tokens
+
+
+class NoneTokenizer(ModelTokenizer):
+    """
+    As the output vocab for the ANN is just the whole target string
+    not split into sub-tokens and the preprocessing needs a tokenizer
+    to be applicable. This Tokenizer just returns the unprocessed
+    token str as expected by the preprocessing.
+    """
+
+    def get_tokens(self, text: str) -> list[str]:
+        """
+        Returns a one-element list of the input text.
+        :param text: Input text
+        :return: Returns [text]
+        """
+        return [text]
+
+    def _process_tokens_for_inp(self, tokens: list[str]) -> list[str]:
+        """
+        No further processing is needed by the NoneTokenizer.
+        Therefore, return its input.
+        :param tokens: The input tokens.
+        :return: Returns tokens.
+        """
         return tokens

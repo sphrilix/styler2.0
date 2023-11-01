@@ -58,7 +58,6 @@ class ModelBase(nn.Module, ABC):
         self.train()
         epoch_loss = 0
         for batch in data:
-            batch.to(self.device)
             epoch_loss += self._fit_one_batch(batch, criterion, optimizer)
         return epoch_loss / len(data)
 
@@ -73,7 +72,6 @@ class ModelBase(nn.Module, ABC):
         epoch_loss = 0
         with torch.no_grad():
             for batch in data:
-                batch.to(self.device)
                 epoch_loss += self._eval_one_batch(batch, criterion)
         return epoch_loss / len(data)
 
@@ -180,7 +178,9 @@ class ModelBase(nn.Module, ABC):
             for t in self._inp_tokenizer().tokenize(" ".join(affected_tokens))
         ]
         src_tensor = Tensor(input_ids).long().to(self.device)
-        possible_fixes = self._fix(src_tensor, top_k)
+        confidences_and_fixes = self._fix(src_tensor, top_k)
+        possible_fixes = [conf_fix[1] for conf_fix in confidences_and_fixes]
+        possible_fixes = self._post_process_fixes(possible_fixes)
         return list(
             src.get_fixes_for(
                 possible_fixes, (src.checkstyle_tokens[0], src.checkstyle_tokens[-1])
@@ -265,6 +265,15 @@ class ModelBase(nn.Module, ABC):
         :return: Returns the tokenizer for inputs.
         """
         pass
+
+    def _post_process_fixes(self, fixes: list[list[str]]) -> list[list[str]]:
+        """
+        Overwrite this in sub-class if output from the fix method needs
+        postprocessing.
+        :param fixes: The fixes to postprocess.
+        :return: The postprocessed fixes.
+        """
+        return fixes
 
 
 @dataclass(frozen=True)
