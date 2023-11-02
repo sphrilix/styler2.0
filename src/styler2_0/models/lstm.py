@@ -356,7 +356,7 @@ class LSTM(ModelBase):
         """
         # Format input to fit into beam search
         # src = [input_length, 1]
-        src = src.unsqueeze(0).T
+        src = src.unsqueeze(0).T.to(self.device)
         return self._beam_search(src, top_k)
 
     def _fit_one_batch(
@@ -369,8 +369,8 @@ class LSTM(ModelBase):
         :param optimizer: Optimizer to be used.
         :return: the loss.
         """
-        src = batch[0].T
-        trg = batch[1].T
+        src = batch[0].T.to(self.device)
+        trg = batch[1].T.to(self.device)
 
         optimizer.zero_grad()
 
@@ -404,8 +404,8 @@ class LSTM(ModelBase):
         :param criterion: The criterion to be used.
         :return: the loss.
         """
-        src = batch[0].T
-        trg = batch[1].T
+        src = batch[0].T.to(self.device)
+        trg = batch[1].T.to(self.device)
 
         output = self(src, trg, 0)  # turn off teacher forcing
 

@@ -44,6 +44,7 @@ class ModelBase(nn.Module, ABC):
         self.device = device
         os.makedirs(self.save, exist_ok=True)
         super().__init__()
+        self.to(device)
 
     def _fit_one_epoch(
         self, data: DataLoader, criterion: nn.Module, optimizer: Optimizer
@@ -224,7 +225,7 @@ class ModelBase(nn.Module, ABC):
         Get the model hyperparams.
         :return: The hyperparams.
         """
-        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
+        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__.lower()}.yaml")
 
     @classmethod
     @abstractmethod
