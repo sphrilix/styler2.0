@@ -125,8 +125,8 @@ class ANN(ModelBase):
         """
         src = src.to(self.device).unsqueeze(0)
         out = self(src)
-        predictions = torch.topk(out, top_k, dim=1).indices
-        confidences = torch.topk(out, top_k, dim=1).values  # noqa
+        predictions = torch.topk(out, top_k, dim=1).indices.T
+        confidences = torch.topk(out, top_k, dim=1).values.T  # noqa
         return list(zip(confidences, predictions, strict=True))
 
     @classmethod

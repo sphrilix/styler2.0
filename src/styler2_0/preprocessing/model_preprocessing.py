@@ -13,6 +13,7 @@ from src.styler2_0.preprocessing.model_tokenizer import (
     ModelTokenizer,
     NoneTokenizer,
     SequenceTokenizer,
+    SplitByCheckstyleTokenizer,
     SplitByTokenizer,
 )
 from src.styler2_0.preprocessing.violation_generation import Metadata
@@ -177,6 +178,8 @@ def _build_model_tokenizers(model: Models) -> tuple[ModelTokenizer, ModelTokeniz
             return SequenceTokenizer(input_length), SequenceTokenizer(output_length)
         case Models.ANN:
             return SplitByTokenizer(input_length), NoneTokenizer()
+        case Models.NGRAM:
+            return SplitByCheckstyleTokenizer(), NoneTokenizer()
         case _:
             raise ValueError(f"Model {model} not supported")
 

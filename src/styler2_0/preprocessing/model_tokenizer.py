@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 
 
@@ -37,6 +38,10 @@ class ModelTokenizer(ABC):
 
 
 class SplitByTokenizer(ModelTokenizer):
+    """
+    Split token stream by certain char.
+    """
+
     def __init__(
         self, max_length: int, split_by: str = " ", pad: str = "<PAD>"
     ) -> None:
@@ -45,9 +50,19 @@ class SplitByTokenizer(ModelTokenizer):
         self._pad = pad
 
     def get_tokens(self, text: str) -> list[str]:
+        """
+        Split the given text into its tokens.
+        :param text: Input text
+        :return: Returns the tokens.
+        """
         return text.split(self._split_by)
 
     def _process_tokens_for_inp(self, tokens: list[str]) -> list[str]:
+        """
+        Process the tokens for the input.
+        :param tokens: The tokens from get_tokens.
+        :return: Returns a list of tokens prepared for model input.
+        """
         tokens = tokens[: self._max_length]
         return tokens + [self._pad] * (self._max_length - len(tokens))
 
@@ -103,3 +118,32 @@ class NoneTokenizer(ModelTokenizer):
         :return: Returns tokens.
         """
         return tokens
+
+
+class SplitByCheckstyleTokenizer(ModelTokenizer):
+    """
+    Split token stream by checkstyle tags.
+    """
+
+    CHECKSTYLE_TOKEN_REG = re.compile(r"</?(\w+)>")
+
+    def __init__(self, pad: str = "<PAD>") -> None:
+        self._pad = pad
+
+    def get_tokens(self, text: str) -> list[str]:
+        """
+        Split the given text into its tokens.
+        :param text: Input text
+        :return: Returns the tokens.
+        """
+        splits = re.split(self.CHECKSTYLE_TOKEN_REG, text)
+        processed_middle_str = f"<{splits[1]}>{splits[2]}</{splits[1]}>"
+        return [splits[0], processed_middle_str, splits[4]]
+
+    def _process_tokens_for_inp(self, tokens: list[str]) -> list[str]:
+        """
+        Process the tokens for the input.
+        :param tokens: The tokens from get_tokens.
+        :return: Returns a list of tokens prepared for model input.
+        """
+        return tokens + [self._pad] * (3 - len(tokens))
