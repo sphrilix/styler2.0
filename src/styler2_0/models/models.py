@@ -140,6 +140,7 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
         model = model_type.value.build_from_config(
             src_vocab, trg_vocab, model_protocol_dir / CHECKPOINT_FOLDER
         )
+        model.to(model.device)
         train_data, val_data = _load_train_and_val_data(
             model_protocol_dir, src_vocab, trg_vocab, model
         )
