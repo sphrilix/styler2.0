@@ -198,8 +198,8 @@ class LSTM(ModelBase):
         super().__init__(
             input_length, output_length, src_vocab, trg_vocab, save, device
         )
-        self.encoder = encoder
-        self.decoder = decoder
+        self.encoder = encoder.to(self.device)
+        self.decoder = decoder.to(self.device)
 
         assert (
             encoder.hid_dim == decoder.hid_dim
