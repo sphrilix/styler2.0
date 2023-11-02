@@ -179,7 +179,11 @@ class ModelBase(nn.Module, ABC):
         ]
         src_tensor = Tensor(input_ids).long().to(self.device)
         confidences_and_fixes = self._fix(src_tensor, top_k)
-        possible_fixes = [conf_fix[1] for conf_fix in confidences_and_fixes]
+        possible_fixes_tensors = [fix for _, fix in confidences_and_fixes]
+        possible_fixes = [
+            [self.trg_vocab.itos(idx.item()) for idx in fix_tensor]
+            for fix_tensor in possible_fixes_tensors
+        ]
         possible_fixes = self._post_process_fixes(possible_fixes)
         return list(
             src.get_fixes_for(

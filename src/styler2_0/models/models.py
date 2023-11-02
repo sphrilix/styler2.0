@@ -27,6 +27,7 @@ from src.styler2_0.utils.utils import (
     save_content_to_file,
 )
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.models.n_gram import NGram
 
 TRAIN_DATA = Path("train")
 TRAIN_SRC = TRAIN_DATA / Path("input.txt")
@@ -49,7 +50,7 @@ class Models(Enum):
 
     LSTM = LSTM
     ANN = ANN
-    NGRAM = None
+    NGRAM = NGram
     TRANSFORMER = Transformer
 
 

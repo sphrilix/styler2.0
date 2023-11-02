@@ -260,7 +260,7 @@ class LSTM(ModelBase):
 
     def _beam_search(
         self, src: Tensor, beam_width: int = 5
-    ) -> list[tuple[Tensor, float]]:
+    ) -> list[tuple[float, Tensor]]:
         """
         Beam search decoding step used for inference.
         Currently, working only with batch_size == 1!
@@ -345,7 +345,7 @@ class LSTM(ModelBase):
             search_space = sorted(new_search_space, reverse=True)[:beam_width]
 
         # Return the top #beam_width samples and their confidences
-        return [(sample.sequence, sample.confidence) for sample in search_space]
+        return [(sample.confidence, sample.sequence) for sample in search_space]
 
     def _fix(self, src: Tensor, top_k: int) -> list[(float, Tensor)]:
         """
