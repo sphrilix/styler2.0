@@ -254,6 +254,7 @@ class Transformer(ModelBase):
                 # Apply softmax to get the probabilities in [0,1]
                 out = nn.Softmax(dim=1)(out)
                 confidences, indices = out.topk(beam_width, dim=1)
+
                 # Iterate over top k predictions and add them to the new search space
                 for conf, index in zip(
                     confidences.squeeze(0), indices.squeeze(0), strict=True
@@ -266,6 +267,7 @@ class Transformer(ModelBase):
                             sample.end_token_idx,
                         )
                     )
+
             # Sort the new search space by confidence and take the top
             # #beam_width samples
             search_space = sorted(new_search_space, reverse=True)[:beam_width]

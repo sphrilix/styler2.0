@@ -19,9 +19,7 @@ class ModelTokenizer(ABC):
     @abstractmethod
     def get_tokens(self, text: str) -> list[str]:
         """
-        Split the given text into its tokens.
-        Without any post-processing, like max_length
-        or special tokens like <SOS>, <EOS> or <PAD>.
+        Split the given text into tokens.
         :param text: The text to be split.
         :return: Returns the tokens.
         """
