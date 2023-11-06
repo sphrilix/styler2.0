@@ -186,7 +186,7 @@ def evaluate(
             trg_vocab,
             model_data_dir / CHECKPOINT_FOLDER / f"{model_type.name.lower()}.pt",
         )
-
+        model.to(model.device)
         for violation in tqdm(
             all_violation_dirs,
             f"Evaluating fixing of violations {model_type.name} trained on {protocol}",
