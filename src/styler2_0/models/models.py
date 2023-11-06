@@ -325,5 +325,6 @@ class EvalStats:
                     p: [asdict(s) for s in ss]
                     for p, ss in self.grouped_by_violated_file.items()
                 },
-            }
+            },
+            indent=2,
         )
