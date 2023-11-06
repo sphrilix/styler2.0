@@ -334,17 +334,26 @@ class ProcessedSourceFile:
         for fix in fixes:
             with suppress(ValueError):
                 possible_fix = []
-                min_range = min(len(tokens_between), len(fix))
-                for i in range(min_range):
-                    # Currently, only insert whitespaces
-                    fix_token = copy.deepcopy(tokens_between[i])
-                    if isinstance(tokens_between[i], Whitespace):
-                        fix_str = Whitespace.parse_tokenized_str(fix[i])
+                # min_range = min(len(tokens_between), len(fix))
+                # for i in range(min_range):
+                #     # Currently, only insert whitespaces
+                #     fix_token = copy.deepcopy(tokens_between[i])
+                #     if isinstance(tokens_between[i], Whitespace):
+                #         fix_str = Whitespace.parse_tokenized_str(fix[i])
+                #         fix_token.text = fix_str
+                #     possible_fix.append(fix_token)
+                # if min_range < len(tokens_between):
+                #     possible_fix.extend(tokens_between[min_range + 1 :])
+                # possible_fixes.append(possible_fix)
+                for token in tokens_between:
+                    if isinstance(token, Whitespace) and len(fix) > 0:
+                        fix_str = Whitespace.parse_tokenized_str(fix[0])
+                        fix_token = copy.deepcopy(token)
                         fix_token.text = fix_str
-                    possible_fix.append(fix_token)
-                if min_range < len(tokens_between):
-                    possible_fix.extend(tokens_between[min_range + 1 :])
-                possible_fixes.append(possible_fix)
+                        possible_fix.append(fix_token)
+                        fix = fix[1:]
+                    else:
+                        possible_fix.append(token)
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
             copy_tokens[start_idx : end_idx + 1] = possible_fix
