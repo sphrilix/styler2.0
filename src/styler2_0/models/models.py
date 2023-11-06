@@ -308,7 +308,7 @@ class EvalStats:
             stream(self.grouped_by_violated_file.items())
             .flatMap(lambda x: stream(x[1]).map(lambda s: (x[0], s)))
             .filter(lambda x: x[1].protocol == protocol and x[1].fixed)
-            .map(lambda f, _: f)
+            .map(lambda x: x[0])
             .to_list()
         )
 
