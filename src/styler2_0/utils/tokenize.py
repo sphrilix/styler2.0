@@ -354,6 +354,7 @@ class ProcessedSourceFile:
                         fix = fix[1:]
                     else:
                         possible_fix.append(token)
+                possible_fixes.append(possible_fix)
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
             copy_tokens[start_idx : end_idx + 1] = possible_fix
