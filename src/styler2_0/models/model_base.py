@@ -272,12 +272,15 @@ class ModelBase(nn.Module, ABC):
 
     def _post_process_fixes(self, fixes: list[list[str]]) -> list[list[str]]:
         """
-        Overwrite this in sub-class if output from the fix method needs
-        postprocessing.
+        Overwrite this in sub-class if output from the fix method needs more
+        postprocessing. Like splitting in tokens.
         :param fixes: The fixes to postprocess.
         :return: The postprocessed fixes.
         """
-        return fixes
+        return [
+            [token for token in fix if token not in self.trg_vocab.special_tokens]
+            for fix in fixes
+        ]
 
 
 @dataclass(frozen=True)

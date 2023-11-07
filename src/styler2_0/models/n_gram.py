@@ -130,4 +130,6 @@ class NGram(ModelBase):
 
     def _post_process_fixes(self, fixes: list[list[str]]) -> list[list[str]]:
         tokenizer = SplitByTokenizer(self.input_length)
-        return [tokenizer.get_tokens(fix[0]) for fix in fixes]
+        return super()._post_process_fixes(
+            [tokenizer.get_tokens(fix[0]) for fix in fixes]
+        )

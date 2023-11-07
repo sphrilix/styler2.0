@@ -92,3 +92,7 @@ class Vocabulary:
         :return: Returns the JSON string.
         """
         return json.dumps({str(k): v for k, v in self._vocab.items()})
+
+    @property
+    def special_tokens(self) -> list[str]:
+        return [self._sos, self._eos, self._pad, self._unk]

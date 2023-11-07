@@ -157,4 +157,6 @@ class ANN(ModelBase):
         :param fixes: Fixes to postprocess.
         :return: Returns the corrected fixes.
         """
-        return [self._inp_tokenizer().get_tokens(fix[0]) for fix in fixes]
+        return super()._post_process_fixes(
+            [self._inp_tokenizer().get_tokens(fix[0]) for fix in fixes]
+        )
