@@ -6,7 +6,6 @@ from random import shuffle
 from shutil import copytree
 
 from bidict import bidict
-from streamerate import stream
 
 from src.styler2_0.models.models import Models
 from src.styler2_0.preprocessing.model_tokenizer import (
@@ -146,23 +145,12 @@ def _get_vocabs_from_metadata(
 ) -> (Vocabulary, Vocabulary):
     src_vocab_tokens = []
     trg_vocab_tokens = []
-    src_vocab_tokens.append(VOCAB_SPECIAL_TOKEN)
-    trg_vocab_tokens.append(VOCAB_SPECIAL_TOKEN)
-
-    # Introduce temporary sets to eliminate duplicates in vocabs and ensuring special
-    # tokens have the same indexes in each vocab (src, trg).
-    temp_src_vocab_tokens = set()
-    temp_trg_vocab_tokens = set()
     for md in metadata:
-        temp_src_vocab_tokens.update(src_tokenizer.get_tokens(md.violated_str))
-        temp_trg_vocab_tokens.update(trg_tokenizer.get_tokens(md.non_violated_str))
-    src_vocab_tokens.append(temp_src_vocab_tokens)
-    trg_vocab_tokens.append(temp_trg_vocab_tokens)
-
-    src_vocab = dict(stream(src_vocab_tokens).flatMap().enumerate().to_dict())
-    trg_vocab = dict(stream(trg_vocab_tokens).flatMap().enumerate().to_dict())
-
-    return Vocabulary(bidict(src_vocab)), Vocabulary(bidict(trg_vocab))
+        src_vocab_tokens.extend(src_tokenizer.get_tokens(md.violated_str))
+        trg_vocab_tokens.extend(trg_tokenizer.get_tokens(md.non_violated_str))
+    return Vocabulary.build_from_tokens(src_vocab_tokens), Vocabulary.build_from_tokens(
+        trg_vocab_tokens
+    )
 
 
 def _get_protocol_from_path(violation_dir: Path) -> Path:
