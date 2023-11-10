@@ -3,7 +3,6 @@ import os
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from itertools import groupby
 from pathlib import Path
 
 from bidict import bidict
@@ -269,7 +268,9 @@ class EvalStats:
             self.grouped_by_violated_file[fix_stat.violated_file].append(fix_stat)
         self.grouped_by_violation_type = defaultdict(list)
         for file, stats in self.grouped_by_violated_file.items():
-            self.grouped_by_violation_type[stats[0].violation_type].append({file: stats})
+            self.grouped_by_violation_type[stats[0].violation_type].append(
+                {file: stats}
+            )
         self.protocols = {s.protocol for s in fix_stats}
 
     def _fixed_by_any_model(self) -> list[str]:
