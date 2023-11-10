@@ -1,5 +1,6 @@
 import json
 import os
+from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from itertools import groupby
@@ -240,7 +241,7 @@ def evaluate(
     )
 
 
-@dataclass(eq=True, frozen=True)
+@dataclass(frozen=True)
 class FixStats:
     """
     The stats of a fix.
@@ -263,11 +264,13 @@ class EvalStats:
         Init eval stats.
         :param fix_stats: The fix stats collected from the evaluation.
         """
-        self.grouped_by_violated_file = {
-            k: list(vs) for k, vs in groupby(fix_stats, lambda s: s.violated_file)
-        }
+        self.grouped_by_violated_file = defaultdict(list)
+        for fix_stat in fix_stats:
+            self.grouped_by_violated_file[fix_stat.violated_file].append(fix_stat)
+        self.grouped_by_violation_type = defaultdict(list)
+        for file, stats in self.grouped_by_violated_file.items():
+            self.grouped_by_violation_type[stats[0].violation_type].append({file: stats})
         self.protocols = {s.protocol for s in fix_stats}
-        self.all_violation_types = {s.violation_type for s in fix_stats}
 
     def _fixed_by_any_model(self) -> list[str]:
         """
@@ -312,6 +315,24 @@ class EvalStats:
             .to_list()
         )
 
+    def micro_acc_by_violation_type(self) -> dict[str, float]:
+        """
+        Calculates the micro accuracy of fixing each violation individually.
+        :return: Returns the accuracy for each seen violation type.
+        """
+        return {
+            vio_type: self._fixed_by_violation_type(vio_type) / len(stats)
+            for vio_type, stats in self.grouped_by_violation_type.items()
+        }
+
+    def _fixed_by_violation_type(self, violation_type: str) -> int:
+        return (
+            stream(self.grouped_by_violation_type[violation_type])
+            .map(lambda fs: stream(fs.values()).flatMap())
+            .filter(lambda fs: any(f.fixed for f in fs))
+            .size()
+        )
+
     def to_json(self) -> str:
         """
         Returns the json representation of the eval stats.
@@ -321,6 +342,7 @@ class EvalStats:
             {
                 "macro_acc": self.macro_acc(),
                 "micro_acc": self.micro_acc(),
+                "stats_per_type": self.micro_acc_by_violation_type(),
                 "stats": {
                     p: [asdict(s) for s in ss]
                     for p, ss in self.grouped_by_violated_file.items()
