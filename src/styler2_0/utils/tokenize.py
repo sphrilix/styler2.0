@@ -475,12 +475,20 @@ class ProcessedSourceFile:
         )
 
     def _get_last_non_ws_token_of_line(self, line: int) -> Token:
-        return (
-            stream(self.non_ws_tokens)
-            .reversed()
-            .filter(lambda token: token.line <= line)
-            .next()
-        )
+        try:
+            return (
+                stream(self.non_ws_tokens)
+                .reversed()
+                .filter(lambda token: token.line <= line)
+                .next()
+            )
+        except StopIteration:
+            return (
+                stream(self.tokens)
+                .reversed()
+                .filter(lambda token: token.line <= line)
+                .next()
+            )
 
 
 class ContainsStr(str):
