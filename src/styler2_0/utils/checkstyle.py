@@ -68,7 +68,7 @@ class ViolationType(Enum):
     LEFT_CURLY = "LeftCurly"
     LINE_LENGTH = "LineLength"
     METHOD_PARAM_PAD = "MethodParamPad"
-    NEW_LINE_AT_END_OF_FILE = "NewlineAtEndOfFile"
+    # NEW_LINE_AT_END_OF_FILE = "NewlineAtEndOfFile"
     NO_LINE_WRAP = "NoLineWrap"
     NO_WHITESPACE_AFTER = "NoWhitespaceAfter"
     NO_WHITESPACE_BEFORE = "NoWhitespaceBefore"
