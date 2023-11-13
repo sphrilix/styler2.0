@@ -66,6 +66,7 @@ def _load_train_and_val_data(
     :param model: The model.
     :return: The train and validation data.
     """
+    batch_size = model.get_model_params()["batch_size"]
     train_inp = _load_file_to_tensor(
         project_dir / TRAIN_SRC, model.input_length, src_vocab
     )
@@ -77,8 +78,8 @@ def _load_train_and_val_data(
         project_dir / VAL_TRG, model.output_length, trg_vocab
     )
     return (
-        DataLoader(list(zip(train_inp, train_trg, strict=True)), batch_size=32),
-        DataLoader(list(zip(val_inp, val_trg, strict=True)), batch_size=32),
+        DataLoader(list(zip(train_inp, train_trg, strict=True)), batch_size=batch_size),
+        DataLoader(list(zip(val_inp, val_trg, strict=True)), batch_size=batch_size),
     )
 
 
@@ -130,10 +131,6 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
     :param epochs: Count epochs.
     :return:
     """
-
-    # TODO:
-    #    - Batch sizes as cl args
-    #    - Criterion and optimizer from config
     protocol_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
     for model_protocol_dir in protocol_dirs:
         model_protocol_dir = model_protocol_dir / model_type.name.lower()

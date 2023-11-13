@@ -7,3 +7,4 @@ n_layers: 1
 enc_dropout: 0.5
 dec_dropout: 0.5
 device: "cuda"
+batch_size: 64
