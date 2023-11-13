@@ -586,7 +586,7 @@ def generate_n_violations(
     checkstyle_config: Path,
     checkstyle_version: str,
     save_path: Path,
-    delta: int = 3 * 60 * 60,  # 3h
+    delta: int = 4 * 60 * 60,  # 4h
 ) -> None:
     """
     Create n violation out of non_violated_sources using the provided protocol.

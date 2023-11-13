@@ -2,4 +2,4 @@ input_length: 650
 output_length: 1
 emb_dim: 256
 dropout: 0.5
-device: "cpu"
+device: "cuda"
