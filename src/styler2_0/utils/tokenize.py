@@ -391,7 +391,7 @@ class ProcessedSourceFile:
 
     def _get_line_violation_ctx(self, violation: Violation) -> (Token, Token):
         assert violation.column is None
-        if violation.line == 1:
+        if violation.line <= 1:
             start = self.tokens[0]
         else:
             start = self._get_last_non_ws_token_of_line(violation.line - 1)
@@ -475,20 +475,12 @@ class ProcessedSourceFile:
         )
 
     def _get_last_non_ws_token_of_line(self, line: int) -> Token:
-        try:
-            return (
-                stream(self.non_ws_tokens)
-                .reversed()
-                .filter(lambda token: token.line <= line)
-                .next()
-            )
-        except StopIteration:
-            return (
-                stream(self.tokens)
-                .reversed()
-                .filter(lambda token: token.line <= line)
-                .next()
-            )
+        return (
+            stream(self.non_ws_tokens)
+            .reversed()
+            .filter(lambda token: token.line <= line)
+            .next()
+        )
 
 
 class ContainsStr(str):
