@@ -16,11 +16,7 @@ from xml.etree.ElementTree import ParseError
 from streamerate import stream
 from tqdm import tqdm
 
-from src.styler2_0.utils.checkstyle import (
-    WrongViolationAmountException,
-    returns_n_violations,
-    run_checkstyle_on_dir,
-)
+from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir, run_checkstyle_on_strs
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
 from src.styler2_0.utils.tokenize import (
     CheckstyleToken,
@@ -39,6 +35,7 @@ from src.styler2_0.utils.utils import (
 
 CURR_DIR = os.path.dirname(os.path.relpath(__file__))
 CSV_PATH = Path(os.path.join(CURR_DIR, "../../../csv/three_grams.csv"))
+DEFAULT_GEN_BATCH_SIZE = 100
 
 
 def _insert(char: str, string: str) -> str:
@@ -185,24 +182,16 @@ class ViolationGenerator(ABC):
         n=3,
         exceptions=(
             NonParseableException,
-            WrongViolationAmountException,
             OperationNonApplicableException,
-            ParseError,  # TODO: Check if this is the right exception and why?
         ),
-    )
-    @returns_n_violations(
-        n=1,
-        use_instance=True,
-        checkstyle_version="checkstyle_version",
-        checkstyle_config="checkstyle_config",
     )
     @returns_valid_java
     def __generate_violation(self, tokens: list[Token]) -> str:
         """
         This is the actual method called to generate the violation.
-        It ensures that the code is parseable and returns exactly 1 violation.
+        It ensures that the code is parseable.
         Also, the generation is tried 3 times if one of the above regulations
-        is violated.
+        is violated or the OperationNotApplicableException is thrown.
         :param tokens: Tokens of the non violated file.
         :return: Returns violated Java code.
         """
@@ -222,7 +211,13 @@ class ViolationGenerator(ABC):
 
     def generate_violations(self) -> None:
         """
-
+        Generates the violations.
+        It ensures that the generated violations are valid java code and
+        that they contain exactly one violation in each sample.
+        The generation is done in batches of DEFAULT_GEN_BATCH_SIZE, as the
+        most time-consuming step is the setup of the external checkstyle process.
+        Therefore, it is way more efficient to call checkstyle on multiple samples and
+        throw the invalid ones away.
         :return:
         """
         self._preprocessing_steps()
@@ -231,28 +226,71 @@ class ViolationGenerator(ABC):
             start = time.time()
             valid_violations = 0
             while valid_violations < self.n and time.time() - start < self.delta:
-                with suppress(TooManyTriesException):
-                    current_file = random.choice(self.non_violated_sources)
-                    content = read_content_of_file(current_file)
-                    tokens = tokenize_java_code(content)
-                    non_violated = "".join(
-                        stream(tokens).map(lambda token: token.de_tokenize())
-                    )
-                    violated = self.__generate_violation(tokens)
-                    current_save_path = self.save_path / Path(str(valid_violations))
-                    os.makedirs(current_save_path, exist_ok=True)
-                    non_violated_file_name = Path(current_file.name)
-                    violated_file_name = Path(f"VIOLATED_{current_file.name}")
-                    save_content_to_file(
-                        current_save_path / non_violated_file_name, non_violated
-                    )
-                    save_content_to_file(
-                        current_save_path / violated_file_name, violated
-                    )
-                    valid_violations += 1
-                    progress_bar.update()
+                valid_violations = self._batched_violation_generation(valid_violations)
+                progress_bar.update(valid_violations - progress_bar.n)
         self._postprocessing_steps()
         self._generate_metadata()
+
+    def _batched_violation_generation(self, valid_violations_count) -> int:
+        """
+        As the overhead of starting an external process it is better to
+        create batches and run checkstyle on this batch and throw away
+        invalid samples.
+        :return: Returns amount of already valid generated violation.
+        """
+
+        # Sample at most remaining violations
+        batch_size = min(DEFAULT_GEN_BATCH_SIZE, self.n - valid_violations_count)
+        valid_pairs: list[(Path, (str, str))] = []
+
+        # Ensure full batch on which checkstyle is run,
+        # as this is the most time-consuming step.
+        while len(valid_pairs) < batch_size:
+            # As self.__generate_violations ensures parseable java code skip
+            # examples which are not parseable and where the selected
+            # operations cannot be applied.
+            with suppress(TooManyTriesException):
+                current_file = random.choice(self.non_violated_sources)
+                content = read_content_of_file(current_file)
+                tokens = tokenize_java_code(content)
+                non_violated = "".join(
+                    stream(tokens).map(lambda token: token.de_tokenize())
+                )
+                violated = self.__generate_violation(tokens)
+                valid_pairs.append((current_file, (non_violated, violated)))
+
+        # Initialized input for run_checkstyle_on_strs
+        # id == index in valid_pairs which later is used to filter
+        # generated strs with exactly 1 violation.
+        violated_dict = dict(
+            stream(valid_pairs).map(lambda p: p[1][1]).enumerate().to_dict()
+        )
+
+        # Checkstyle report cannot be parsed skip the batch.
+        with suppress(ParseError):
+            reports_with_id = run_checkstyle_on_strs(
+                violated_dict, self.checkstyle_version, self.checkstyle_config
+            )
+
+            # Get generated instances with exactly 1 violation
+            valid_violations: list[(Path, (str, str))] = []
+            for idx, report in reports_with_id.items():
+                if len(report.violations) == 1:
+                    valid_violations.append(valid_pairs[idx])
+
+            # Save generated violations
+            for current_file, (violated, non_violated) in valid_violations:
+                current_save_path = self.save_path / Path(str(valid_violations_count))
+                os.makedirs(current_save_path, exist_ok=True)
+                non_violated_file_name = Path(current_file.name)
+                violated_file_name = Path(f"VIOLATED_{current_file.name}")
+                save_content_to_file(
+                    current_save_path / non_violated_file_name, non_violated
+                )
+                save_content_to_file(current_save_path / violated_file_name, violated)
+                valid_violations_count += 1
+
+        return valid_violations_count
 
     def _generate_metadata(self) -> None:
         with tqdm(total=self.n, desc="Generate metadata") as progress_bar:
@@ -548,7 +586,7 @@ def generate_n_violations(
     checkstyle_config: Path,
     checkstyle_version: str,
     save_path: Path,
-    delta: int = 3 * 60 * 60,  # 3h
+    delta: int = 4 * 60 * 60,  # 4h
 ) -> None:
     """
     Create n violation out of non_violated_sources using the provided protocol.
@@ -580,7 +618,11 @@ def filter_relevant_tokens(
     """
     assert len(violated.checkstyle_tokens) == 2
     violated_tokens = next(violated.tokens_between_violations())
-    violated_tokens_wo_checkstyle = violated_tokens[1:-1]
+    violated_tokens_wo_checkstyle = (
+        stream(violated.tokens)
+        .filter(lambda token: not isinstance(token, CheckstyleToken))
+        .to_list()
+    )
     start_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[1])
     end_idx_non_violated = violated_tokens_wo_checkstyle.index(violated_tokens[-2]) + 1
     non_violated_tokens = non_violated.tokens[
@@ -591,8 +633,7 @@ def filter_relevant_tokens(
             stream(non_violated_tokens)
             # TODO: styler uses only whitespaces but we want to use all tokens
             #       (knowingly that might decrease the performance)
-            # .filter(lambda t: isinstance(t, Whitespace))
-            .map(str)
+            .filter(lambda t: isinstance(t, Whitespace)).map(str)
         ),
         " ".join(stream(next(violated.violations_with_ctx(context))).map(str)),
     )

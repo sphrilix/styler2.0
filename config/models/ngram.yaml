@@ -1,0 +1,6 @@
+input_length: 3
+output_length: 1
+emb_dim: 256
+linear_dim: 128
+device: "cuda"
+batch_size: 64

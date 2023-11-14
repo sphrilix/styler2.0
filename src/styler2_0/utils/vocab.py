@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from pathlib import Path
 
 from bidict import bidict
@@ -86,9 +87,44 @@ class Vocabulary:
             )
         )
 
+    @staticmethod
+    def build_from_tokens(
+        tokens: list[str],
+        threshold: int = 3,
+        sos: str = "<SOS>",
+        eos: str = "<EOS>",
+        pad: str = "<PAD>",
+        unk: str = "<UNK>",
+    ) -> "Vocabulary":
+        """
+        Build the vocabulary from the given tokens.
+        :param tokens: The tokens.
+        :param threshold: The threshold.
+        :param sos: The start of sequence token.
+        :param eos: The end of sequence token.
+        :param pad: The padding token.
+        :param unk: The unknown token.
+        :return: Returns the vocabulary.
+        """
+        vocab = bidict()
+        vocab[len(vocab)] = sos
+        vocab[len(vocab)] = eos
+        vocab[len(vocab)] = pad
+        vocab[len(vocab)] = unk
+        for token in Counter(tokens).most_common():
+            # We can break as the most_common returns the tokens in descending order.
+            if token[1] < threshold:
+                break
+            vocab[len(vocab)] = token[0]
+        return Vocabulary(vocab, sos, eos, pad, unk)
+
     def to_json(self) -> str:
         """
         Convert the vocabulary to a JSON string.
         :return: Returns the JSON string.
         """
         return json.dumps({str(k): v for k, v in self._vocab.items()})
+
+    @property
+    def special_tokens(self) -> list[str]:
+        return [self._sos, self._eos, self._pad, self._unk]

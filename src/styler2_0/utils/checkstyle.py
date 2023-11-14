@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from streamerate import stream
 
@@ -67,7 +68,7 @@ class ViolationType(Enum):
     LEFT_CURLY = "LeftCurly"
     LINE_LENGTH = "LineLength"
     METHOD_PARAM_PAD = "MethodParamPad"
-    NEW_LINE_AT_END_OF_FILE = "NewlineAtEndOfFile"
+    # NEW_LINE_AT_END_OF_FILE = "NewlineAtEndOfFile"
     NO_LINE_WRAP = "NoLineWrap"
     NO_WHITESPACE_AFTER = "NoWhitespaceAfter"
     NO_WHITESPACE_BEFORE = "NoWhitespaceBefore"
@@ -159,9 +160,32 @@ def run_checkstyle_on_str(
     :param config: The checkstyle config.
     :return: Returns the CheckstyleReport of the snippet.
     """
-    os.makedirs(CHECKSTYLE_TEMP_PATH, exist_ok=True)
-    save_content_to_file(JAVA_TEMP_FILE, code)
-    return list(run_checkstyle_on_dir(CHECKSTYLE_TEMP_PATH, version, config))[0]
+    return next(iter(run_checkstyle_on_strs({0: code}, version, config).values()))
+
+
+def run_checkstyle_on_strs(
+    codes: dict[int, str], version: str, config: Path
+) -> dict[int, CheckstyleFileReport]:
+    """
+    Runs checkstyle on the given code snippets all at once.
+    Reports back the reports and their id.
+    The codes are a dict with an id to later match reports to corresponding strs.
+    The report.path == {temp_dir}/id.java.
+    :param codes: Snippets with given identifier.
+    :param version: Checkstyle version to be used.
+    :param config: Checkstyle config to be used.
+    :return: Returns a dictionary with the id and the corresponding report.
+    """
+    with TemporaryDirectory() as temp_dir:
+        temp_dir = Path(temp_dir)
+        for id, code in codes.items():
+            save_content_to_file(temp_dir / f"{id}.java", code)
+        reports = run_checkstyle_on_dir(temp_dir, version, config)
+        report_dict: dict[int, CheckstyleFileReport] = {}
+        for report in reports:
+            id = int(report.path.name.replace(".java", ""))
+            report_dict[id] = report
+    return report_dict
 
 
 def n_violations_in_code(n: int, code: str, version: str, config: Path) -> None:

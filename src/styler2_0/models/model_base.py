@@ -1,18 +1,20 @@
+import json
 import math
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import time
 
 import torch
 from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
+from src.styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
-from src.styler2_0.utils.utils import load_yaml_file
+from src.styler2_0.utils.utils import load_yaml_file, save_content_to_file
 from src.styler2_0.utils.vocab import Vocabulary
-from styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 
 
 class ModelBase(nn.Module, ABC):
@@ -23,6 +25,7 @@ class ModelBase(nn.Module, ABC):
     CURR_DIR = Path(os.path.dirname(os.path.relpath(__file__)))
     CONFIGS_PATH = CURR_DIR / Path("../../../config/models/")
     SAVE_PATH = CURR_DIR / Path("../../../models/")
+    TRAIN_STATS_FILE = "train_stats.json"
 
     def __init__(
         self,
@@ -112,9 +115,16 @@ class ModelBase(nn.Module, ABC):
         :param optimizer: Optimization rule.
         :return:
         """
+        train_stats = TrainStats(0, [])
+        best_valid_loss = float("inf")
         for epoch in range(epochs):
             train_loss = self._fit_one_epoch(train_data, criterion, optimizer)
             valid_loss = self._eval_one_epoch(val_data, criterion)
+
+            # Update stats
+            epoch_stats = EpochStats(epoch, train_loss, valid_loss)
+            train_stats.epoch_stats.append(epoch_stats)
+
             print(f"Epoch: {epoch + 1:02}")
             print(
                 f"\tTrain Loss: {train_loss:.3f} "
@@ -125,7 +135,23 @@ class ModelBase(nn.Module, ABC):
                 f"|  Val. PPL: {math.exp(valid_loss):7.3f}"
             )
 
-            torch.save(self.state_dict(), self.save / f"model_{epoch}_{valid_loss}.pt")
+            torch.save(
+                self.state_dict(),
+                self.save / f"{self.__class__.__name__.lower()}_{epoch}.pt",
+            )
+            if valid_loss < best_valid_loss:
+                best_valid_loss = valid_loss
+                torch.save(
+                    self.state_dict(),
+                    self.save / f"{self.__class__.__name__.lower()}.pt",
+                )
+
+                train_stats.best_epoch = epoch
+
+            # Save stats after every epoch
+            save_content_to_file(
+                self.save / self.TRAIN_STATS_FILE, train_stats.to_json()
+            )
 
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
@@ -152,7 +178,13 @@ class ModelBase(nn.Module, ABC):
             for t in self._inp_tokenizer().tokenize(" ".join(affected_tokens))
         ]
         src_tensor = Tensor(input_ids).long().to(self.device)
-        possible_fixes = self._fix(src_tensor, top_k)
+        confidences_and_fixes = self._fix(src_tensor, top_k)
+        possible_fixes_tensors = [fix for _, fix in confidences_and_fixes]
+        possible_fixes = [
+            [self.trg_vocab.itos(idx.item()) for idx in fix_tensor]
+            for fix_tensor in possible_fixes_tensors
+        ]
+        possible_fixes = self._post_process_fixes(possible_fixes)
         return list(
             src.get_fixes_for(
                 possible_fixes, (src.checkstyle_tokens[0], src.checkstyle_tokens[-1])
@@ -192,7 +224,7 @@ class ModelBase(nn.Module, ABC):
         Get the model hyperparams.
         :return: The hyperparams.
         """
-        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__}.yaml")
+        return load_yaml_file(cls.CONFIGS_PATH / f"{cls.__name__.lower()}.yaml")
 
     @classmethod
     @abstractmethod
@@ -238,6 +270,18 @@ class ModelBase(nn.Module, ABC):
         """
         pass
 
+    def _post_process_fixes(self, fixes: list[list[str]]) -> list[list[str]]:
+        """
+        Overwrite this in sub-class if output from the fix method needs more
+        postprocessing. Like splitting in tokens.
+        :param fixes: The fixes to postprocess.
+        :return: The postprocessed fixes.
+        """
+        return [
+            [token for token in fix if token not in self.trg_vocab.special_tokens]
+            for fix in fixes
+        ]
+
 
 @dataclass(frozen=True)
 class BeamSearchDecodingStepData:
@@ -263,3 +307,43 @@ class BeamSearchDecodingStepData:
 
     def is_sequence_finished(self) -> bool:
         return self.sequence[-1].item() == self.end_token_idx
+
+
+@dataclass(frozen=True, eq=True)
+class EpochStats:
+    """
+    Data class for epoch stats.
+    """
+
+    epoch: int
+    train_loss: float
+    valid_loss: float
+
+    def to_json(self) -> str:
+        """
+        Convert to json.
+        :return: Returns the json string.
+        """
+        return json.dumps(asdict(self))
+
+
+@dataclass(eq=True)
+class TrainStats:
+    """
+    Data class for training stats.
+    """
+
+    best_epoch: int
+    epoch_stats: list[EpochStats]
+    start_time: int = int(time())
+    end_time: int = int(time())
+
+    def to_json(self) -> str:
+        """
+        Convert to json.
+        :return: Returns the json string.
+        """
+
+        # Update end time every time when stats are saved
+        self.end_time = int(time())
+        return json.dumps(asdict(self))

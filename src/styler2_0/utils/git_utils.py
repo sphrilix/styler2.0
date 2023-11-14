@@ -1,8 +1,10 @@
 import json
 import shutil
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 from pydriller import Commit, Git, Repository
 from streamerate import stream
@@ -131,37 +133,43 @@ def _mine_violations_and_fixes_from_commits(
     mined_violations: list[MinedViolation] = []
     for commit in tqdm(commits, desc="Mining violations"):
         # TODO: check why the parse error is raised
-        git_repo.checkout(commit.hash)
-        if pom_includes_checkstyle_suppression(input_dir):
-            continue
-        checkstyle_reports = run_checkstyle_on_dir(input_dir, version, config)
-        interesting_reports_of_commit = _filter_interesting_reports(checkstyle_reports)
+        with suppress(ParseError):
+            git_repo.checkout(commit.hash)
+            if pom_includes_checkstyle_suppression(input_dir):
+                continue
+            checkstyle_reports = run_checkstyle_on_dir(input_dir, version, config)
+            interesting_reports_of_commit = _filter_interesting_reports(
+                checkstyle_reports
+            )
 
-        # Get new reports of commit as the same violation can occur in
-        # different commits
-        new_reports_of_commit = _get_new_reports(
-            already_seen_reports, interesting_reports_of_commit
-        )
+            # Get new reports of commit as the same violation can occur in
+            # different commits
+            new_reports_of_commit = _get_new_reports(
+                already_seen_reports, interesting_reports_of_commit
+            )
 
-        # Get the files with no violations
-        non_affected_files = {
-            report for report in checkstyle_reports if not report.violations
-        }
+            # Get the files with no violations
+            non_affected_files = {
+                report for report in checkstyle_reports if not report.violations
+            }
 
-        violations_with_no_fix = _violations_with_no_fix(mined_violations)
+            violations_with_no_fix = _violations_with_no_fix(mined_violations)
 
-        # Update the violations with no fix, if the violation is fixed in
-        # the current commit which means the file is now in the non_affected_files
-        _update_violation_with_fix(
-            non_affected_files, violations_with_no_fix, commit.hash
-        )
+            # Update the violations with no fix, if the violation is fixed in
+            # the current commit which means the file is now in the non_affected_files
+            _update_violation_with_fix(
+                non_affected_files, violations_with_no_fix, commit.hash
+            )
 
-        already_seen_reports.update(set(new_reports_of_commit))
+            already_seen_reports.update(set(new_reports_of_commit))
 
-        # Update mined_violations with the new violations
-        mined_violations.extend(
-            [MinedViolation(report, commit.hash) for report in new_reports_of_commit]
-        )
+            # Update mined_violations with the new violations
+            mined_violations.extend(
+                [
+                    MinedViolation(report, commit.hash)
+                    for report in new_reports_of_commit
+                ]
+            )
     return list(mined_violations)
 
 

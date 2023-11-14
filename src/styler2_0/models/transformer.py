@@ -63,8 +63,8 @@ class Transformer(ModelBase):
         # batch = [src, trg]
         # trg, src = [batch_size, src_len]
         # but model requires [src_len, batch_size]
-        src = batch[0].T
-        trg = batch[1].T
+        src = batch[0].T.to(self.device)
+        trg = batch[1].T.to(self.device)
 
         # shift right
         trg_inp = trg[:-1, :]
@@ -97,8 +97,8 @@ class Transformer(ModelBase):
         """
         # src, trg = [batch_size, src_len]
         # but the models requires [src_len, batch_size]
-        src = batch[0].T
-        trg = batch[1].T
+        src = batch[0].T.to(self.device)
+        trg = batch[1].T.to(self.device)
 
         # Shift trg right
         trg_inp = trg[:-1, :]
@@ -184,7 +184,7 @@ class Transformer(ModelBase):
         :param top_k: How many fixes should be sampled.
         :return: Returns #top_k decoded sequences.
         """
-        src = src.unsqueeze(0).T
+        src = src.unsqueeze(0).T.to(self.device)
         return self._beam_search(src, top_k)
 
     def _beam_search(self, src: Tensor, beam_width: int) -> list[(float, Tensor)]:
