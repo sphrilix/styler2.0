@@ -153,6 +153,11 @@ class ModelBase(nn.Module, ABC):
                 self.save / self.TRAIN_STATS_FILE, train_stats.to_json()
             )
 
+            # Early stopping after over fitting
+            if epoch - train_stats.best_epoch > 10:
+                print("Training ended due to over fitting")
+                break
+
     @abstractmethod
     def forward(self, *args: ..., **kwargs: ...) -> Tensor:
         """
