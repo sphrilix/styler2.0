@@ -293,7 +293,7 @@ class LSTM(ModelBase):
             BeamSearchDecodingStepData(
                 torch.tensor([self.trg_vocab.stoi(self.trg_vocab.sos)]).to(self.device),
                 {"hidden": hidden, "cell": cell},
-                1.0,  # <SOS> is always the first token
+                0.0,  # <SOS> is always the first token
                 self.trg_vocab.stoi(self.trg_vocab.eos),
             )
         ]
@@ -323,7 +323,7 @@ class LSTM(ModelBase):
                 output = output + unk_mask
 
                 # Apply Softmax to get confidences between [0, 1]
-                output = nn.Softmax(dim=1)(output)
+                output = nn.LogSoftmax(dim=1)(output)
 
                 confidences, indices = output.topk(beam_width, dim=1)
 
@@ -335,7 +335,10 @@ class LSTM(ModelBase):
                         BeamSearchDecodingStepData(
                             torch.cat((sample.sequence, index.unsqueeze(0)), dim=0),
                             {"hidden": hidden, "cell": cell},
-                            sample.confidence * conf.item(),  # Calculate new confidence
+                            sample.confidence
+                            + conf.item()
+                            / ((len(sample.sequence) + 5) / 6)
+                            ** 0.75,  # Calculate new confidence
                             sample.end_token_idx,
                         )
                     )

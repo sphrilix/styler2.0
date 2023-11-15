@@ -222,7 +222,7 @@ class Transformer(ModelBase):
             BeamSearchDecodingStepData(
                 torch.tensor([self.trg_vocab.stoi(self.trg_vocab.sos)]).to(self.device),
                 {"memory": memory},
-                1.0,  # <SOS> is always the first token
+                0.0,  # <SOS> is always the first token
                 self.trg_vocab.stoi(self.trg_vocab.eos),
             )
         ]
@@ -252,7 +252,7 @@ class Transformer(ModelBase):
                 out = out + unk_mask
 
                 # Apply softmax to get the probabilities in [0,1]
-                out = nn.Softmax(dim=1)(out)
+                out = nn.LogSoftmax(dim=1)(out)
                 confidences, indices = out.topk(beam_width, dim=1)
 
                 # Iterate over top k predictions and add them to the new search space
@@ -263,7 +263,10 @@ class Transformer(ModelBase):
                         BeamSearchDecodingStepData(
                             torch.cat((sample.sequence, index.unsqueeze(0)), dim=0),
                             {"memory": memory},
-                            sample.confidence * conf.item(),  # Calculate new confidence
+                            sample.confidence
+                            + conf.item()
+                            / ((len(sample.sequence) + 5) / 6)
+                            ** 0.75,  # Calculate new confidence
                             sample.end_token_idx,
                         )
                     )
