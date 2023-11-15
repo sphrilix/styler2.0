@@ -538,16 +538,11 @@ class Metadata:
             for report in reports
             if str(report.path).endswith(".java")
         ]
-        non_violated = (
-            stream(processed_files)
-            .filter(lambda file: len(file.report.violations) == 0)
-            .next()
-        )
-        violated = (
-            stream(processed_files)
-            .filter(lambda file: len(file.report.violations) > 0)
-            .next()
-        )
+        for processed_file in processed_files:
+            if len(processed_file.report.violations) == 0:
+                non_violated = processed_file
+            else:
+                violated = processed_file
         self.non_violated_str, self.violated_str = filter_relevant_tokens(
             non_violated, violated
         )
