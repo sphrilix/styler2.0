@@ -265,7 +265,7 @@ class Transformer(ModelBase):
                             {"memory": memory},
                             sample.confidence
                             + conf.item()
-                            / ((len(sample.sequence) + 1) / 6)
+                            / ((len(sample.sequence) + 5) / 6)
                             ** 0.75,  # Calculate new confidence
                             sample.end_token_idx,
                         )
