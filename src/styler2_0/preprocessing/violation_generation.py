@@ -39,6 +39,8 @@ DEFAULT_GEN_BATCH_SIZE = 100
 
 
 def _insert(char: str, string: str) -> str:
+    if random.random() < 0.5:
+        return char + string
     return string + char
 
 
