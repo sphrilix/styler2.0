@@ -43,7 +43,7 @@ def _insert(char: str, string: str) -> str:
 
 
 def _delete(char: str, string: str) -> str:
-    return string.replace(char, "", 1)
+    return string.replace(char, "")
 
 
 class OperationNonApplicableException(Exception):
@@ -129,12 +129,12 @@ class Operations(Enum):
     Enum of operations that can be performed.
     """
 
-    INSERT_SPACE = InsertOperation(" ")
-    INSERT_TAB = InsertOperation("\t")
-    INSERT_NL = InsertOperation("\n")
-    DELETE_TAB = DeleteOperation("\t")
-    DELETE_SPACE = DeleteOperation(" ")
-    DELETE_NL = DeleteOperation("\n")
+    INSERT_SPACE = (InsertOperation(" "), 5)
+    INSERT_TAB = (InsertOperation("\t"), 1)
+    INSERT_NL = (InsertOperation("\n"), 5)
+    # DELETE_TAB = DeleteOperation("\t") styler does not support
+    DELETE_SPACE = (DeleteOperation(" "), 5)
+    DELETE_NL = (DeleteOperation("\n"), 5)
 
     def __call__(self, code: str) -> str:
         return self.value(code)
@@ -327,7 +327,11 @@ class RandomGenerator(ViolationGenerator):
         pass
 
     def _generate_violation(self, tokens: list[Token]) -> str:
-        operation = random.choice(list(Operations)).value
+        operation = random.choices(
+            [op.value[0] for op in list(Operations)],
+            k=1,
+            weights=[op.value[1] for op in list(Operations)],
+        )[0]
         applicable_tokens = self._get_applicable_tokens(operation, tokens)
         if not applicable_tokens:
             raise OperationNonApplicableException(
