@@ -3,6 +3,7 @@ import csv
 import json
 import os
 import random
+import shutil
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator
@@ -46,6 +47,12 @@ def _insert(char: str, string: str) -> str:
 
 def _delete(char: str, string: str) -> str:
     return string.replace(char, "")
+
+
+class MetadataException(Exception):
+    """
+    Exception that is raised whenever the metadata cannot be calculated.
+    """
 
 
 class OperationNonApplicableException(Exception):
@@ -305,16 +312,17 @@ class ViolationGenerator(ABC):
                             violated = curr_dir / Path(file)
                         elif file.endswith(".java"):
                             non_violated = curr_dir / Path(file)
-                    if not non_violated or not violated:
-                        continue
                     progress_bar.update()
-                    metadata = Metadata(
-                        non_violated,
-                        violated,
-                        self.checkstyle_config,
-                        self.checkstyle_version,
-                    )
-                    metadata.save_to_directory(curr_dir)
+                    try:
+                        metadata = Metadata(
+                            non_violated,
+                            violated,
+                            self.checkstyle_config,
+                            self.checkstyle_version,
+                        )
+                        metadata.save_to_directory(curr_dir)
+                    except MetadataException:
+                        shutil.rmtree(curr_dir)
 
 
 class RandomGenerator(ViolationGenerator):
@@ -544,11 +552,14 @@ class Metadata:
             for report in reports
             if str(report.path).endswith(".java")
         ]
+        violated, non_violated = None, None
         for processed_file in processed_files:
             if len(processed_file.report.violations) == 0:
                 non_violated = processed_file
-            else:
+            elif len(processed_file.report.violations) == 1:
                 violated = processed_file
+        if not non_violated or not violated:
+            raise MetadataException("Violation amount wrong!")
         self.non_violated_str, self.violated_str = filter_relevant_tokens(
             non_violated, violated
         )
