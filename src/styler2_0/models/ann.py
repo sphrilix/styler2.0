@@ -68,7 +68,7 @@ class ANN(ModelBase):
         src = batch[0].to(self.device)
 
         # trg = [batch_size, 1] -> [batch_size]
-        trg = batch[1].T.to(self.device).squeeze(1)
+        trg = batch[1].T.to(self.device).squeeze(0)
         out = self(src)
         loss = criterion(out, trg)
         return loss.item()
