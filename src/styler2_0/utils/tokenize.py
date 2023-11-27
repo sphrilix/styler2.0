@@ -141,8 +141,31 @@ class Identifier(Token):
     Class which represents Identifier/Literals
     """
 
+    STRING_SPLITTER = re.compile(
+        r"(?<=[a-z])(?=[A-Z])|(_)|(-)|(\\d)|(?<=[A-Z])(?=[A-Z][a-z])|\\s+"
+    )
+    ALL_LOWER_SUB_TOKEN = "[I_LOWER]"
+    ALL_UPPER_SUB_TOKEN = "[I_UPPER]"
+    FIRST_UPPER_OTHER_LOWER_SUB_TOKEN = "[I_FIRST_UPPER_OTHER_LOWER]"
+    HYPHEN = "[I_HYPHEN]"
+    UNDERSCORE = "[I_UNDERSCORE]"
+
     def __str__(self) -> str:
-        return "IDENTIFIER"
+        sub_tokens = filter(
+            lambda token: token is not None, self.STRING_SPLITTER.split(self.text)
+        )
+        return " ".join(map(self._process_sub_token, sub_tokens))
+
+    def _process_sub_token(self, sub_token: str) -> str:
+        if sub_token.isupper():
+            return self.ALL_UPPER_SUB_TOKEN
+        if sub_token[0].isupper() and sub_token[1:].islower():
+            return self.FIRST_UPPER_OTHER_LOWER_SUB_TOKEN
+        if sub_token == "-":
+            return self.HYPHEN
+        if sub_token == "_":
+            return self.UNDERSCORE
+        return self.ALL_LOWER_SUB_TOKEN
 
 
 class Whitespace(Token):
