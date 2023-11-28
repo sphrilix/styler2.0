@@ -11,6 +11,7 @@ from src.styler2_0.utils.checkstyle import (
 )
 from src.styler2_0.utils.tokenize import (
     Comment,
+    Identifier,
     ProcessedSourceFile,
     Whitespace,
     tokenize_java_code,
@@ -206,3 +207,21 @@ def _identifier_test_cases() -> list[tuple[str, str]]:
 def test_tokenize_identifiers(inp: str, expected: str) -> None:
     tokens = tokenize_java_code(inp)
     assert str(tokens[12]) == expected
+
+
+def test_parse_tokenized_str_identifier_cases() -> list[((list[str], str), str)]:
+    return [
+        ((["[I_LOWER]", "[I_FIRST_UPPER_OTHER_LOWER]"], "camel_case"), "camelCase"),
+        ((["[I_LOWER]", "[I_UNDERSCORE]", "[I_LOWER]"], "camelCase"), "camel_case"),
+        ((["[I_UPPER]", "[I_UNDERSCORE]", "[I_LOWER]"], "camelCase"), "CAMEL_case"),
+        ((["[I_UPPER]", "[I_UNDERSCORE]"], "camelCASE"), "CAMEL_CASE"),
+        ((["[I_UPPER]"], "camel_case"), "CAMELcase"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "inp, expected", test_parse_tokenized_str_identifier_cases()  # noqa: PT006
+)
+def test_parse_tokenized_str_identifier(inp: (list[str], str), expected: str) -> None:
+    out = Identifier.parse_tokenized_str(inp[0], inp[1])
+    assert out == expected

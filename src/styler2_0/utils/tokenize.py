@@ -178,6 +178,36 @@ class Identifier(Token):
             return self.UNDERSCORE
         return self.ALL_LOWER_SUB_TOKEN
 
+    @staticmethod
+    def parse_tokenized_str(tokenized_str: list[str], old_name: str) -> str:
+        """
+        Parse a tokenized string to the real representation.
+        :param tokenized_str: The tokenized string representation.
+        :param old_name: The old name of the identifier in the wrong format.
+        :return: Returns the new name of the identifier in the correct format.
+        """
+
+        # Filter non name format tokens
+        tokenized_str = [t for t in tokenized_str if t.startswith("[I")]
+        out = ""
+        tokens = [t for t in Identifier.sub_tokens_of_identifier(old_name) if t != "_"]
+        for current_template in tokenized_str:
+            if current_template == Identifier.UNDERSCORE:
+                out += "_"
+                continue
+            if not tokens:
+                break
+            t = tokens.pop(0)
+            if current_template == Identifier.ALL_LOWER_SUB_TOKEN:
+                out += t.lower()
+            elif current_template == Identifier.ALL_UPPER_SUB_TOKEN:
+                out += t.upper()
+            elif current_template == Identifier.FIRST_UPPER_OTHER_LOWER_SUB_TOKEN:
+                out += t.title()
+        if tokens:
+            out += "".join(tokens)
+        return out
+
 
 class Whitespace(Token):
     """
@@ -366,21 +396,31 @@ class ProcessedSourceFile:
         tokens_between = self.tokens[start_idx : end_idx + 1]
         possible_fixes = []
         for fix in fixes:
+            # TODO: why ValueError?
             with suppress(ValueError):
-                possible_fix = []
-                for token in tokens_between:
-                    if isinstance(token, Whitespace) and len(fix) > 0:
-                        fix_str = Whitespace.parse_tokenized_str(fix[0])
-                        fix_token = copy.deepcopy(token)
-                        fix_token.text = fix_str
-                        possible_fix.append(fix_token)
-                        fix = fix[1:]
-                    else:
-                        possible_fix.append(token)
+                if start.text.lower().endswith("name>"):
+                    identifier = next(
+                        iter(t for t in tokens_between if isinstance(t, Identifier))
+                    )
+                    possible_fix = self._insert_fix_name_violation(fix, identifier)
+                else:
+                    possible_fix = self._insert_fix_format_violation(
+                        fix, tokens_between
+                    )
                 possible_fixes.append(possible_fix)
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
-            copy_tokens[start_idx : end_idx + 1] = possible_fix
+            if start.text.lower().endswith("name>"):
+                identifier = next(
+                    iter(t for t in tokens_between if isinstance(t, Identifier))
+                )
+                old_value = identifier.text
+                new_value = possible_fix[0].text
+                for t in copy_tokens:
+                    if isinstance(t, Identifier) and t.text == old_value:
+                        t.text = new_value
+            else:
+                copy_tokens[start_idx : end_idx + 1] = possible_fix
             yield ProcessedSourceFile(self.file_name, copy_tokens)
 
     def __repr__(self) -> str:
@@ -519,6 +559,31 @@ class ProcessedSourceFile:
             .next()
         )
         return violated_name_token, violated_name_token
+
+    @staticmethod
+    def _insert_fix_format_violation(
+        fix: list[str], tokens_between: list[Token]
+    ) -> list[Token]:
+        fix = [f for f in fix if not f.startswith("[I") and not f.startswith("<")]
+        possible_fix = []
+        for token in tokens_between:
+            if isinstance(token, Whitespace) and len(fix) > 0:
+                fix_str = Whitespace.parse_tokenized_str(fix[0])
+                fix_token = copy.deepcopy(token)
+                fix_token.text = fix_str
+                possible_fix.append(fix_token)
+                fix = fix[1:]
+            else:
+                possible_fix.append(token)
+        return possible_fix
+
+    @staticmethod
+    def _insert_fix_name_violation(
+        fix: list[str], identifier: Identifier
+    ) -> list[Token]:
+        assert isinstance(identifier, Identifier)
+        new_value = Identifier.parse_tokenized_str(fix, identifier.text)
+        return [Identifier(new_value, identifier.line, identifier.column)]
 
 
 class ContainsStr(str):
