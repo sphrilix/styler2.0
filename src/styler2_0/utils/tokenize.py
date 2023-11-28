@@ -398,7 +398,7 @@ class ProcessedSourceFile:
         for fix in fixes:
             # TODO: why ValueError?
             with suppress(ValueError):
-                if start.text.lower().endswith("name>"):
+                if start.text.lower().endswith("name"):
                     identifier = next(
                         iter(t for t in tokens_between if isinstance(t, Identifier))
                     )
@@ -410,7 +410,7 @@ class ProcessedSourceFile:
                 possible_fixes.append(possible_fix)
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
-            if start.text.lower().endswith("name>"):
+            if start.text.lower().endswith("name"):
                 identifier = next(
                     iter(t for t in tokens_between if isinstance(t, Identifier))
                 )
