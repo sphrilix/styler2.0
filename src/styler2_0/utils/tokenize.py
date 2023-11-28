@@ -8,7 +8,11 @@ from typing import Self
 
 from streamerate import stream
 
-from src.styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
+from src.styler2_0.utils.checkstyle import (
+    CheckstyleFileReport,
+    Violation,
+    ViolationType,
+)
 from src.styler2_0.utils.java import Lexeme, lex_java
 
 #######################################################################################
@@ -151,10 +155,17 @@ class Identifier(Token):
     UNDERSCORE = "[I_UNDERSCORE]"
 
     def __str__(self) -> str:
-        sub_tokens = filter(
-            lambda token: token is not None, self.STRING_SPLITTER.split(self.text)
-        )
+        sub_tokens = self.sub_tokens_of_identifier(self.text)
         return " ".join(map(self._process_sub_token, sub_tokens))
+
+    @staticmethod
+    def sub_tokens_of_identifier(identifier: str) -> list[str]:
+        return list(
+            filter(
+                lambda token: token is not None and token != "",
+                Identifier.STRING_SPLITTER.split(identifier),
+            )
+        )
 
     def _process_sub_token(self, sub_token: str) -> str:
         if sub_token.isupper():
@@ -381,7 +392,9 @@ class ProcessedSourceFile:
         ), "Report and source file path must match."
 
         for violation in report.violations:
-            if violation.column is None:
+            if violation.type.name.endswith("NAME"):
+                start, end = self._get_name_violation_ctx(violation)
+            elif violation.column is None:
                 start, end = self._get_line_violation_ctx(violation)
             else:
                 start, end = self._get_col_violation_ctx(violation)
@@ -494,6 +507,19 @@ class ProcessedSourceFile:
             .next()
         )
 
+    def _get_name_violation_ctx(self, violation: Violation) -> tuple[Token, Token]:
+        assert violation.type.name.endswith("NAME")
+        assert violation.column is not None
+        violated_name_token = (
+            stream(self.non_ws_tokens)
+            .reversed()
+            .filter(lambda token: isinstance(token, Identifier))
+            .filter(lambda token: token.line == violation.line)
+            .filter(lambda token: token.column <= violation.column)
+            .next()
+        )
+        return violated_name_token, violated_name_token
+
 
 class ContainsStr(str):
     """
@@ -604,3 +630,16 @@ def tokenize_with_reports(
             processed_file = ProcessedSourceFile(report.path, tokens, report)
             processed_files.append(processed_file)
     return processed_files
+
+
+def interesting_tokens_type(violation: ViolationType) -> type(Token):
+    """
+    Get the interesting token type for a given violation.
+    :param violation: The given violation.
+    :return: Returns the interesting token type.
+    """
+    match violation.name.split("_")[-1]:
+        case "NAME":
+            return Identifier
+        case _:
+            return Whitespace

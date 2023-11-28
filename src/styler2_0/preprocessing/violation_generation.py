@@ -10,6 +10,7 @@ from collections.abc import Generator
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Any, Self
 from xml.etree.ElementTree import ParseError
@@ -21,9 +22,11 @@ from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir, run_checkstyle
 from src.styler2_0.utils.java import NonParseableException, returns_valid_java
 from src.styler2_0.utils.tokenize import (
     CheckstyleToken,
+    Identifier,
     ProcessedSourceFile,
     Token,
     Whitespace,
+    interesting_tokens_type,
     tokenize_java_code,
 )
 from src.styler2_0.utils.utils import (
@@ -53,6 +56,46 @@ class MetadataException(Exception):
     """
     Exception that is raised whenever the metadata cannot be calculated.
     """
+
+
+class IdentifierAlteringOperations(Enum):
+    """
+    Enum of operations that can be performed on an identifier.
+    """
+
+    TO_SNAKE_CASE = partial(
+        lambda name: "_".join(Identifier.sub_tokens_of_identifier(name)).lower()
+    )
+    TO_CONSTANT_CASE = partial(
+        lambda name: "_".join(Identifier.sub_tokens_of_identifier(name)).upper()
+    )
+    TO_CAMEL_CASE = partial(
+        lambda name: Identifier.sub_tokens_of_identifier(name)[0].lower()
+        + "".join(Identifier.sub_tokens_of_identifier(name)[1:]).title()
+    )
+
+    def __call__(self, token: str) -> str:
+        return self.value(token)
+
+
+class TokenAlteringOperations(Enum):
+    """
+    Enum of operations that can be performed on a token.
+    """
+
+    TO_LOWER = partial(lambda name: name.lower())
+    TO_UPPER = partial(lambda name: name.upper())
+    TO_CAMEL_CASE = partial(lambda name: name.title())
+    TO_SNAKE_CASE = partial(
+        lambda name: f"_{name.lower()}" if random.random() < 0.5 else f"{name.lower()}_"
+    )
+
+    def __call__(self, token: str) -> str:
+        return self.value(token)
+
+
+def _alter_token(token: str) -> str:
+    return random.choice(list(TokenAlteringOperations))(token)
 
 
 class OperationNonApplicableException(Exception):
@@ -85,6 +128,35 @@ class Operation(ABC):
         :return: Returns True if applicable else False.
         """
         return True
+
+
+class IdentifierOperation(Operation, ABC):
+    def is_applicable(self, token: Token, context: tuple[Token, Token]) -> bool:
+        return isinstance(token, Identifier)
+
+
+class IdentifierAlteringOperation(IdentifierOperation):
+    """
+    Operation altering an identifier in more intelligent way.
+    """
+
+    def _apply(self, code: str) -> str:
+        operation = random.choice(list(IdentifierAlteringOperations))
+        return operation(code)
+
+
+class IdentifierRandomAlteringOperation(IdentifierOperation):
+    """
+    Operation altering an identifier randomly.
+    """
+
+    def _apply(self, code: str) -> str:
+        sub_tokens = Identifier.sub_tokens_of_identifier(code)
+        random_tokens = random.choices(sub_tokens)
+        for idx, token in enumerate(sub_tokens):
+            if token in random_tokens:
+                sub_tokens[idx] = _alter_token(token)
+        return "".join(sub_tokens)
 
 
 class CharOperation(Operation, ABC):
@@ -144,6 +216,7 @@ class Operations(Enum):
     # DELETE_TAB = DeleteOperation("\t") styler does not support
     DELETE_SPACE = (DeleteOperation(" "), 5)
     DELETE_NL = (DeleteOperation("\n"), 5)
+    NAME_ALTERING = (IdentifierRandomAlteringOperation(), 8)
 
     def __call__(self, code: str) -> str:
         return self.value(code)
@@ -348,13 +421,26 @@ class RandomGenerator(ViolationGenerator):
                 f"{operation} not applicable on token sequence."
             )
         random_token = random.choice(applicable_tokens)
+        old_value_of_token = random_token.text
         operation(random_token)
+        new_value_of_token = random_token.text
+        if operation == Operations.NAME_ALTERING:
+            return "".join(
+                stream(tokens).map(lambda token: token.de_tokenize())
+            ).replace(old_value_of_token, new_value_of_token)
         return "".join(stream(tokens).map(lambda token: token.de_tokenize()))
 
     @staticmethod
     def _get_applicable_tokens(
         operation: Operation, tokens: list[Token]
     ) -> list[Token]:
+        if operation == Operations.NAME_ALTERING:
+            return list(
+                stream(tokens)
+                .filter(lambda token: isinstance(token, Identifier))
+                .to_list()
+            )
+
         padded_tokens: list[Token] = (
             [Whitespace("", 0, 0)] + tokens + [Whitespace("", 0, 0)]
         )
@@ -419,6 +505,8 @@ class ThreeGramGenerator(ViolationGenerator):
         pass
 
     def _generate_violation(self, tokens: list[Token]) -> str:
+        if random.random() < 0.05:
+            return self._generate_name_violations(tokens)
         three_gram = random.choice(list(self.__build_3_grams_from_tokens(tokens)))
         alternatives_with_prob = self.__get_alternatives_with_prob(three_gram[0])
         if not alternatives_with_prob:
@@ -432,6 +520,22 @@ class ThreeGramGenerator(ViolationGenerator):
         new_ws = random.choices(choices, weights)
         three_gram[1].text = Whitespace.parse_tokenized_str(new_ws[0])
         return "".join(stream(tokens).map(lambda token: token.de_tokenize()))
+
+    @staticmethod
+    def _generate_name_violations(tokens: list[Token]) -> str:
+        altering_operation = IdentifierAlteringOperation()
+        applicable_tokens = list(filter(lambda t: isinstance(t, Identifier), tokens))
+        if not applicable_tokens:
+            raise OperationNonApplicableException(
+                f"{altering_operation} not applicable on token sequence."
+            )
+        random_token = random.choice(applicable_tokens)
+        old_value_of_token = random_token.text
+        altering_operation(random_token)
+        new_value_of_token = random_token.text
+        return "".join(stream(tokens).map(lambda token: token.de_tokenize())).replace(
+            old_value_of_token, new_value_of_token
+        )
 
     def __load_three_grams(self) -> None:
         if not CSV_PATH.exists():
@@ -640,12 +744,14 @@ def filter_relevant_tokens(
     non_violated_tokens = non_violated.tokens[
         start_idx_non_violated:end_idx_non_violated
     ]
+    violation_type = next(iter(violated.report.violations)).type
+    interesting_token_type = interesting_tokens_type(violation_type)
     return (
         " ".join(
             stream(non_violated_tokens)
             # TODO: styler uses only whitespaces but we want to use all tokens
             #       (knowingly that might decrease the performance)
-            .filter(lambda t: isinstance(t, Whitespace)).map(str)
+            .filter(lambda t: isinstance(t, interesting_token_type)).map(str)
         ),
         " ".join(stream(next(violated.violations_with_ctx(context))).map(str)),
     )
