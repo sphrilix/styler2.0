@@ -1,10 +1,8 @@
-import json
 import math
 import os
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from time import time
 
 import torch
 from torch import Tensor, nn
@@ -15,6 +13,7 @@ from src.styler2_0.preprocessing.model_tokenizer import ModelTokenizer
 from src.styler2_0.utils.tokenize import ProcessedSourceFile
 from src.styler2_0.utils.utils import load_yaml_file, save_content_to_file
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.utils.analysis import EpochStats, TrainStats
 
 
 class ModelBase(nn.Module, ABC):
@@ -312,43 +311,3 @@ class BeamSearchDecodingStepData:
 
     def is_sequence_finished(self) -> bool:
         return self.sequence[-1].item() == self.end_token_idx
-
-
-@dataclass(frozen=True, eq=True)
-class EpochStats:
-    """
-    Data class for epoch stats.
-    """
-
-    epoch: int
-    train_loss: float
-    valid_loss: float
-
-    def to_json(self) -> str:
-        """
-        Convert to json.
-        :return: Returns the json string.
-        """
-        return json.dumps(asdict(self))
-
-
-@dataclass(eq=True)
-class TrainStats:
-    """
-    Data class for training stats.
-    """
-
-    best_epoch: int
-    epoch_stats: list[EpochStats]
-    start_time: int = int(time())
-    end_time: int = int(time())
-
-    def to_json(self) -> str:
-        """
-        Convert to json.
-        :return: Returns the json string.
-        """
-
-        # Update end time every time when stats are saved
-        self.end_time = int(time())
-        return json.dumps(asdict(self))

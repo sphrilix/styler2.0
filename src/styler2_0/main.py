@@ -24,6 +24,7 @@ from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
+from styler2_0.utils.analysis import analyze_all_eval_jsons
 
 
 class TaskNotSupportedException(Exception):
@@ -39,6 +40,7 @@ class Tasks(Enum):
     TRAIN = "TRAIN"
     MINE_VIOLATIONS = "MINE_VIOLATIONS"
     EVAL = "EVAL"
+    ANALYZE_EVAL = "ANALYZE_EVAL"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -86,6 +88,8 @@ def main() -> int:
                 parsed_args.mined_violations_dir,
                 parsed_args.top_k,
             )
+        case Tasks.ANALYZE_EVAL:
+            analyze_all_eval_jsons(parsed_args.eval_dir)
         case _:
             return 1
     return 0
@@ -179,6 +183,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     mine_violations_sub_parser = sub_parser.add_parser(str(Tasks.MINE_VIOLATIONS))
     train_sub_parser = sub_parser.add_parser(str(Tasks.TRAIN))
     eval_sub_parser = sub_parser.add_parser(str(Tasks.EVAL))
+    analyze_eval_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_EVAL))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -220,6 +225,9 @@ def _set_up_arg_parser() -> ArgumentParser:
     eval_sub_parser.add_argument("--project_dir", type=Path, required=True)
     eval_sub_parser.add_argument("--top_k", type=int, default=5)
     eval_sub_parser.add_argument("--mined_violations_dir", type=Path, required=True)
+
+    # Set up arguments for analyzing evaluation
+    analyze_eval_sub_parser.add_argument("--eval_dir", type=Path, required=True)
 
     return arg_parser
 

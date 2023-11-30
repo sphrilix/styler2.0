@@ -18,11 +18,13 @@ from src.styler2_0.utils.checkstyle import (
 )
 from src.styler2_0.utils.maven import pom_includes_checkstyle_suppression
 from src.styler2_0.utils.utils import save_content_to_file
+from styler2_0.utils.analysis import analyze_mined_violations
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
 # TODO: How to handle suppression files?!
 #       Styler for example discards every commit that contains a suppression file.
+#       Currently, we do the same.
 
 
 class NotProcessableGitRepositoryException(Exception):
@@ -96,6 +98,7 @@ def process_git_repository(
         save_content_to_file(
             output_dir / MINED_VIOLATIONS_DIR / "data.json", json.dumps(meta_data)
         )
+        analyze_mined_violations(output_dir / MINED_VIOLATIONS_DIR)
 
 
 def _extract_commits_to_search(input_dir: Path, config: Path) -> Sequence[Commit]:
@@ -275,3 +278,13 @@ def _save_violations(
                 violation.fix_report.path,
                 fix_dir,
             )
+        meta_data = {
+            "violation_hash": violation.violations_hash,
+            "fix_hash": violation.fix_hash,
+            "fixed": violation.is_fixed(),
+            "violation_type": next(iter(violation.violation_report.violations)).type,
+        }
+        save_content_to_file(
+            output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",
+            json.dumps(meta_data),
+        )
