@@ -185,8 +185,9 @@ class EvalStatsPerModel:
         """
         return EvalStatsPerModel(
             [
-                FixStats.from_json(json.dumps(s))
-                for s in json.loads(json_str)["stats"].values()
+                FixStats.from_json(json.dumps(f))
+                for fs in json.loads(json_str)["stats"].values()
+                for f in fs
             ]
         )
 
