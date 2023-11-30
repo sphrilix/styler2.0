@@ -1,8 +1,8 @@
 import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
-from datetime import time
 from pathlib import Path
+from time import time
 
 from streamerate import stream
 from tqdm import tqdm
