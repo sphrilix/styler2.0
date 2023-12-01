@@ -282,7 +282,9 @@ def _save_violations(
             "violation_hash": violation.violations_hash,
             "fix_hash": violation.fix_hash,
             "fixed": violation.is_fixed(),
-            "violation_type": next(iter(violation.violation_report.violations)).type,
+            "violation_type": next(
+                iter(violation.violation_report.violations)
+            ).type.value,
         }
         save_content_to_file(
             output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",

@@ -21,7 +21,6 @@ from src.styler2_0.utils.checkstyle import (
     run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.git_utils import process_git_repository
-from src.styler2_0.utils.maven import get_checkstyle_version_of_project
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
 from styler2_0.utils.analysis import analyze_all_eval_jsons
@@ -152,10 +151,10 @@ def _get_checkstyle_version(input_dir: Path, config: Path) -> str:
     :param config: The checkstyle config.
     :return: Returns the checkstyle version.
     """
-    try:
-        return get_checkstyle_version_of_project(input_dir)
-    except AttributeError:
-        return find_version_by_trying(config, input_dir)
+    # try:
+    #     return get_checkstyle_version_of_project(input_dir)
+    # except AttributeError:
+    return find_version_by_trying(config, input_dir)
 
 
 def _run_violation_mining(repo_dir: Path, save: Path) -> None:
