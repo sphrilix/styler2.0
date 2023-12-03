@@ -23,7 +23,10 @@ from src.styler2_0.utils.checkstyle import (
 from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
-from styler2_0.utils.analysis import analyze_all_eval_jsons
+from styler2_0.utils.analysis import (
+    analyze_all_eval_jsons,
+    analyze_generated_violations,
+)
 
 
 class TaskNotSupportedException(Exception):
@@ -129,6 +132,7 @@ def _run_violation_generation(parsed_args: Namespace) -> None:
     generate_n_violations(
         n, protocol, non_violated_dir, config, version, violations_dir
     )
+    analyze_generated_violations(violations_dir)
 
 
 def _extract_non_violated_files(

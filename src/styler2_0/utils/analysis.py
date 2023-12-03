@@ -304,3 +304,31 @@ def analyze_all_eval_jsons(eval_dir: Path) -> None:
     }
     eval_stats = EvalStats(eval_json_per_model)
     save_content_to_file(eval_dir / "eval_data.json", eval_stats.to_json())
+
+
+def analyze_generated_violations(violation_dir: Path) -> None:
+    """
+    Analyze the generated violations.
+    :param violation_dir: The directory with the generated violations.
+    :return:
+    """
+    generated_statistics = {}
+    protocols = get_sub_dirs_in_dir(violation_dir)
+    for protocol in protocols:
+        violations = get_sub_dirs_in_dir(protocol)
+        statistics_per_protocol = {
+            "violations": len(violations),
+            "violations_per_type": defaultdict(int),
+        }
+        for violation in tqdm(
+            violations, desc=f"Analyzing generated violations of {protocol.name}"
+        ):
+            data_json = json.loads(read_content_of_file(violation / "data.json"))
+            statistics_per_protocol["violations_per_type"][
+                data_json["violation_type"]
+            ] += 1
+
+        generated_statistics[protocol.name] = statistics_per_protocol
+    save_content_to_file(
+        violation_dir / "analysis.json", json.dumps(generated_statistics, indent=2)
+    )

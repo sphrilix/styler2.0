@@ -605,12 +605,13 @@ class Metadata:
         version: str,
         non_violated_str: str | None = None,
         violated_str: str | None = None,
+        violation_type: str | None = None,
     ) -> None:
         self.non_violated_source = non_violated_source
         self.violated_source = violated_source
         self.config = config
         self.version = version
-        if not non_violated_str or not violated_str:
+        if not non_violated_str or not violated_str or not violation_type:
             self.__set_up_metadata()
         else:
             self.violated_str = violated_str
@@ -624,6 +625,7 @@ class Metadata:
             "version": self.version,
             "non_violated_str": self.non_violated_str,
             "violated_str": self.violated_str,
+            "violation_type": self.violation_type,
         }
         return json.dumps(json_dict)
 
@@ -637,6 +639,7 @@ class Metadata:
             data["version"],
             data["non_violated_str"],
             data["violated_str"],
+            data["violation_type"],
         )
 
     def save_to_directory(self, directory: Path) -> None:
@@ -661,8 +664,11 @@ class Metadata:
             if len(processed_file.report.violations) == 0:
                 non_violated = processed_file
             elif len(processed_file.report.violations) == 1:
+                self.violation_type = next(
+                    iter(processed_file.report.violations)
+                ).type.value
                 violated = processed_file
-        if not non_violated or not violated:
+        if not non_violated or not violated or not self.violation_type:
             raise MetadataException("Violation amount wrong!")
         self.non_violated_str, self.violated_str = filter_relevant_tokens(
             non_violated, violated
