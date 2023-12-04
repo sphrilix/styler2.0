@@ -216,7 +216,7 @@ class Operations(Enum):
     # DELETE_TAB = DeleteOperation("\t") styler does not support
     DELETE_SPACE = (DeleteOperation(" "), 5)
     DELETE_NL = (DeleteOperation("\n"), 5)
-    # NAME_ALTERING = (IdentifierRandomAlteringOperation(), 8)
+    NAME_ALTERING = (IdentifierRandomAlteringOperation(), 0)
 
     def __call__(self, code: str) -> str:
         return self.value(code)
@@ -434,12 +434,12 @@ class RandomGenerator(ViolationGenerator):
     def _get_applicable_tokens(
         operation: Operation, tokens: list[Token]
     ) -> list[Token]:
-        # if operation == Operations.NAME_ALTERING:
-        #     return list(
-        #         stream(tokens)
-        #         .filter(lambda token: isinstance(token, Identifier))
-        #         .to_list()
-        #     )
+        if operation == Operations.NAME_ALTERING:
+            return list(
+                stream(tokens)
+                .filter(lambda token: isinstance(token, Identifier))
+                .to_list()
+            )
 
         padded_tokens: list[Token] = (
             [Whitespace("", 0, 0)] + tokens + [Whitespace("", 0, 0)]
