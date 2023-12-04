@@ -434,12 +434,12 @@ class RandomGenerator(ViolationGenerator):
     def _get_applicable_tokens(
         operation: Operation, tokens: list[Token]
     ) -> list[Token]:
-        if operation == Operations.NAME_ALTERING:
-            return list(
-                stream(tokens)
-                .filter(lambda token: isinstance(token, Identifier))
-                .to_list()
-            )
+        # if operation == Operations.NAME_ALTERING:
+        #     return list(
+        #         stream(tokens)
+        #         .filter(lambda token: isinstance(token, Identifier))
+        #         .to_list()
+        #     )
 
         padded_tokens: list[Token] = (
             [Whitespace("", 0, 0)] + tokens + [Whitespace("", 0, 0)]
