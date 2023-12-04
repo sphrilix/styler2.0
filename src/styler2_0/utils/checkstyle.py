@@ -186,7 +186,11 @@ def run_checkstyle_on_dir(
     # Run checkstyle and parse the output
     logging.info("Running checkstyle with command: %s", checkstyle_cmd)
     with subprocess.Popen(
-        checkstyle_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        checkstyle_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        shell=True,
     ) as checkstyle_process:
         try:
             report, stderr = checkstyle_process.communicate(timeout=timeout)
