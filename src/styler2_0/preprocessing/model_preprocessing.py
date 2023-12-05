@@ -41,7 +41,9 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         raise ValueError("Splits must sum to 1.0.")
 
     protocol = _get_protocol_from_path(violation_dir)
-    dirs = get_sub_dirs_in_dir(violation_dir)
+    dirs = [
+        directory for directory in os.listdir(violation_dir) if os.path.isdir(directory)
+    ]
     shuffle(dirs)
     print(dirs)
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
@@ -89,9 +91,7 @@ def _build_vocab(
     )
     metadata = []
     for violation in get_sub_dirs_in_dir(build_vocabs_path):
-        metadata_json_content = read_content_of_file(
-            build_vocabs_path / Path(violation) / DATA_JSON
-        )
+        metadata_json_content = read_content_of_file(Path(violation) / DATA_JSON)
         metadata.append(Metadata.from_json(metadata_json_content))
     src_vocab, trg_vocab = _get_vocabs_from_metadata(
         metadata, src_tokenizer, trg_tokenizer
@@ -128,9 +128,7 @@ def _build_inputs_from_vocab(
     model_input = []
     ground_truth = []
     for violation in get_sub_dirs_in_dir(input_dir):
-        metadata = Metadata.from_json(
-            read_content_of_file(input_dir / violation / DATA_JSON)
-        )
+        metadata = Metadata.from_json(read_content_of_file(violation / DATA_JSON))
 
         violated_tokens = src_tokenizer.tokenize(metadata.violated_str)
         non_violated_tokens = trg_tokenizer.tokenize(metadata.non_violated_str)
@@ -195,8 +193,6 @@ def preprocessing(
         for directory in os.listdir(violation_dir)
         if os.path.isdir(violation_dir / Path(directory))
     ]
-    print("biblablub")
-    print(protocol_dirs)
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
