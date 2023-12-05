@@ -41,16 +41,11 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         raise ValueError("Splits must sum to 1.0.")
 
     protocol = _get_protocol_from_path(violation_dir)
-    dirs = [
-        directory for directory in os.listdir(violation_dir) if os.path.isdir(directory)
-    ]
+    dirs = get_sub_dirs_in_dir(violation_dir)
     shuffle(dirs)
-    print(dirs)
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
-
-    print(complete_train)
 
     # If the splits are already built, don't rebuild them.
     if complete_train.exists() and complete_val.exists() and complete_test.exists():
@@ -70,11 +65,11 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     validation = dirs[int(len(dirs) * train_part) : int(len(dirs) * val_part)]
     testing = dirs[int(len(dirs) * val_part) :]
     for violation in training:
-        copytree(violation_dir / Path(violation), complete_train / Path(violation))
+        copytree(Path(violation), complete_train / Path(violation.name))
     for violation in validation:
-        copytree(violation_dir / Path(violation), complete_val / Path(violation))
+        copytree(Path(violation), complete_val / Path(violation.name))
     for violation in testing:
-        copytree(violation_dir / Path(violation), complete_test / Path(violation))
+        copytree(Path(violation), complete_test / Path(violation.name))
 
 
 def _build_vocab(
@@ -188,11 +183,7 @@ def preprocessing(
     :return:
     """
     violation_dir = project_dir / VIOLATION_DIR
-    protocol_dirs = [
-        violation_dir / Path(directory)
-        for directory in os.listdir(violation_dir)
-        if os.path.isdir(violation_dir / Path(directory))
-    ]
+    protocol_dirs = get_sub_dirs_in_dir(violation_dir)
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
