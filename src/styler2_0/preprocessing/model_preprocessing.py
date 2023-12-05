@@ -43,13 +43,14 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     protocol = _get_protocol_from_path(violation_dir)
     dirs = get_sub_dirs_in_dir(violation_dir)
     shuffle(dirs)
-
+    print(dirs)
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
 
     # If the splits are already built, don't rebuild them.
     if complete_train.exists() and complete_val.exists() and complete_test.exists():
+        print("Splits already built.")
         return
 
     os.makedirs(complete_train)
@@ -191,6 +192,7 @@ def preprocessing(
         violation_dir / Path(directory)
         for directory in get_sub_dirs_in_dir(violation_dir)
     ]
+    print(protocol_dirs)
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
