@@ -194,6 +194,7 @@ def preprocessing(
         violation_dir / Path(directory)
         for directory in get_sub_dirs_in_dir(violation_dir)
     ]
+    print("biblablub")
     print(protocol_dirs)
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
