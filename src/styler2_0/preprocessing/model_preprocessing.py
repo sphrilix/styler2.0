@@ -48,6 +48,8 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
 
+    print(complete_train)
+
     # If the splits are already built, don't rebuild them.
     if complete_train.exists() and complete_val.exists() and complete_test.exists():
         print("Splits already built.")
