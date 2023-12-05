@@ -16,7 +16,11 @@ from src.styler2_0.preprocessing.model_tokenizer import (
     SplitByTokenizer,
 )
 from src.styler2_0.preprocessing.violation_generation import Metadata
-from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
+from src.styler2_0.utils.utils import (
+    get_sub_dirs_in_dir,
+    read_content_of_file,
+    save_content_to_file,
+)
 from src.styler2_0.utils.vocab import Vocabulary
 
 VIOLATION_DIR = Path("violations/")
@@ -37,7 +41,7 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         raise ValueError("Splits must sum to 1.0.")
 
     protocol = _get_protocol_from_path(violation_dir)
-    dirs = os.listdir(violation_dir)
+    dirs = get_sub_dirs_in_dir(violation_dir)
     shuffle(dirs)
 
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
@@ -81,7 +85,7 @@ def _build_vocab(
         / TRAIN_PATH
     )
     metadata = []
-    for violation in os.listdir(build_vocabs_path):
+    for violation in get_sub_dirs_in_dir(build_vocabs_path):
         metadata_json_content = read_content_of_file(
             build_vocabs_path / Path(violation) / DATA_JSON
         )
@@ -120,7 +124,7 @@ def _build_inputs_from_vocab(
 ) -> None:
     model_input = []
     ground_truth = []
-    for violation in os.listdir(input_dir):
+    for violation in get_sub_dirs_in_dir(input_dir):
         metadata = Metadata.from_json(
             read_content_of_file(input_dir / violation / DATA_JSON)
         )
@@ -184,7 +188,8 @@ def preprocessing(
     """
     violation_dir = project_dir / VIOLATION_DIR
     protocol_dirs = [
-        violation_dir / Path(directory) for directory in os.listdir(violation_dir)
+        violation_dir / Path(directory)
+        for directory in get_sub_dirs_in_dir(violation_dir)
     ]
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
