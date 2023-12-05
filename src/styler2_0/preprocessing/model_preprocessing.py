@@ -192,7 +192,8 @@ def preprocessing(
     violation_dir = project_dir / VIOLATION_DIR
     protocol_dirs = [
         violation_dir / Path(directory)
-        for directory in get_sub_dirs_in_dir(violation_dir)
+        for directory in os.listdir(violation_dir)
+        if os.path.isdir(violation_dir / Path(directory))
     ]
     print("biblablub")
     print(protocol_dirs)
