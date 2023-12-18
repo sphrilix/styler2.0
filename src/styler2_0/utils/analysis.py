@@ -258,8 +258,26 @@ class EvalStats:
                 "macro_acc": self.macro_acc,
                 "micro_acc": self.micro_acc,
                 "stats_per_type": self.type_micro,
+                "stats_per_model": {
+                    model: stats.to_json()
+                    for model, stats in self.stats_per_models.items()
+                },
             },
             indent=2,
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "EvalStats":
+        """
+        Creates an EvalStats object from json.
+        :param json_str: The json string.
+        :return: The EvalStats object.
+        """
+        return EvalStats(
+            {
+                model: EvalStatsPerModel.from_json(json.dumps(stats))
+                for model, stats in json.loads(json_str)["stats_per_model"].items()
+            }
         )
 
 
@@ -332,3 +350,30 @@ def analyze_generated_violations(violation_dir: Path) -> None:
     save_content_to_file(
         violation_dir / "analysis.json", json.dumps(generated_statistics, indent=2)
     )
+
+
+def analyze_data_dir(projects_dir: Path) -> None:
+    """
+    Analyze all eval data.
+    :param projects_dir: The directory with the projects.
+    :return:
+    """
+    all_mined_vios = defaultdict(dict)
+    all_eval_datas = defaultdict(EvalStats)
+    projects = [d for d in get_sub_dirs_in_dir(projects_dir) if d.name.endswith("out")]
+    for project in tqdm(projects, desc="Loading meta data:"):
+        eval_dir = project / "eval_data"
+        mined_violations_dir = project / "mined_violations"
+        try:
+            mined_vio_data = json.loads(
+                read_content_of_file(mined_violations_dir / "analysis.json")
+            )
+            analyze_all_eval_jsons(eval_dir)
+            eval_data = EvalStats.from_json(
+                read_content_of_file(eval_dir / "eval_data.json")
+            )
+        except FileNotFoundError:
+            continue
+        all_mined_vios[project.name] = mined_vio_data
+        all_eval_datas[project.name] = eval_data
+    print("All mined violations:" + str(all_mined_vios))

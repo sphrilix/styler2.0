@@ -25,6 +25,7 @@ from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
 from styler2_0.utils.analysis import (
     analyze_all_eval_jsons,
+    analyze_data_dir,
     analyze_generated_violations,
 )
 
@@ -43,6 +44,7 @@ class Tasks(Enum):
     MINE_VIOLATIONS = "MINE_VIOLATIONS"
     EVAL = "EVAL"
     ANALYZE_EVAL = "ANALYZE_EVAL"
+    ANALYZE_DIR = "ANALYZE_DIR"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -92,6 +94,8 @@ def main() -> int:
             )
         case Tasks.ANALYZE_EVAL:
             analyze_all_eval_jsons(parsed_args.eval_dir)
+        case Tasks.ANALYZE_DIR:
+            analyze_data_dir(parsed_args.dir)
         case _:
             return 1
     return 0
@@ -187,6 +191,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     train_sub_parser = sub_parser.add_parser(str(Tasks.TRAIN))
     eval_sub_parser = sub_parser.add_parser(str(Tasks.EVAL))
     analyze_eval_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_EVAL))
+    analyze_dir_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_DIR))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -231,6 +236,9 @@ def _set_up_arg_parser() -> ArgumentParser:
 
     # Set up arguments for analyzing evaluation
     analyze_eval_sub_parser.add_argument("--eval_dir", type=Path, required=True)
+
+    # Set up arguments for analyzing directory
+    analyze_dir_sub_parser.add_argument("--dir", type=Path, required=True)
 
     return arg_parser
 
