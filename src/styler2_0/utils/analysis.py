@@ -373,7 +373,7 @@ def analyze_data_dir(projects_dir: Path) -> None:
             eval_data = EvalStats.from_json(
                 read_content_of_file(eval_dir / "eval_data.json")
             )
-        except FileNotFoundError:
+        except Exception:
             continue
         all_mined_vios[project.name] = mined_vio_data
         all_eval_datas[project.name] = eval_data
