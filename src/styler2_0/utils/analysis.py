@@ -361,6 +361,7 @@ def analyze_data_dir(projects_dir: Path) -> None:
     all_mined_vios = defaultdict(dict)
     all_eval_datas = defaultdict(EvalStats)
     projects = [d for d in get_sub_dirs_in_dir(projects_dir) if d.name.endswith("out")]
+    print(projects)
     for project in tqdm(projects, desc="Loading meta data:"):
         eval_dir = project / "eval_data"
         mined_violations_dir = project / "mined_violations"
