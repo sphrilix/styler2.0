@@ -151,12 +151,12 @@ class EvalStatsPerModel:
         }
 
     def fixed_by_violation_type(self, violation_type: str) -> list[str]:
-        return list(
-            stream(self.grouped_by_violation_type[violation_type])
-            .map(lambda fs: stream(fs.values()).flatMap())
-            .filter(lambda fs: any(f.fixed for f in fs))
-            .to_list()
-        )
+        fixed_by = []
+        for fs in self.grouped_by_violation_type[violation_type]:
+            for file, fix_stats in fs.items():
+                if any(fix_stat.fixed for fix_stat in fix_stats):
+                    fixed_by.append(file)
+        return fixed_by
 
     def to_json(self) -> str:
         """
@@ -164,17 +164,20 @@ class EvalStatsPerModel:
         :return: The json representation of the eval stats.
         """
         return json.dumps(
-            {
-                "macro_acc": self.macro_acc(),
-                "micro_acc": self.micro_acc(),
-                "stats_per_type": self.micro_acc_by_violation_type(),
-                "stats": {
-                    p: [asdict(s) for s in ss]
-                    for p, ss in self.grouped_by_violated_file.items()
-                },
-            },
+            self.as_dict(),
             indent=2,
         )
+
+    def as_dict(self) -> dict[str, ...]:
+        return {
+            "macro_acc": self.macro_acc(),
+            "micro_acc": self.micro_acc(),
+            "stats_per_type": self.micro_acc_by_violation_type(),
+            "stats": {
+                p: [asdict(s) for s in ss]
+                for p, ss in self.grouped_by_violated_file.items()
+            },
+        }
 
     @classmethod
     def from_json(cls, json_str: str) -> "EvalStatsPerModel":
@@ -237,9 +240,11 @@ class EvalStats:
         :return: The micro accuracy over all models.
         """
         first_stats = next(iter(self.stats_per_models.values()))
-        amount_violations = len(first_stats.grouped_by_violated_file)
         fixes_per_type = defaultdict(float)
         for violation_type in first_stats.grouped_by_violation_type:
+            amount_violations = len(
+                first_stats.grouped_by_violation_type[violation_type]
+            )
             fixed_violation = set()
             for stat_per_model in self.stats_per_models.values():
                 fixed_violation.update(
@@ -259,7 +264,7 @@ class EvalStats:
                 "micro_acc": self.micro_acc,
                 "stats_per_type": self.type_micro,
                 "stats_per_model": {
-                    model: stats.to_json()
+                    model: stats.as_dict()
                     for model, stats in self.stats_per_models.items()
                 },
             },
@@ -319,6 +324,7 @@ def analyze_all_eval_jsons(eval_dir: Path) -> None:
     eval_json_per_model = {
         e.name.split("_")[0]: EvalStatsPerModel.from_json(read_content_of_file(e))
         for e in eval_jsons
+        if e.name != "eval_data.json"
     }
     eval_stats = EvalStats(eval_json_per_model)
     save_content_to_file(eval_dir / "eval_data.json", eval_stats.to_json())
@@ -359,7 +365,7 @@ def analyze_data_dir(projects_dir: Path) -> None:
     :return:
     """
     all_mined_vios = defaultdict(dict)
-    all_eval_datas = defaultdict(EvalStats)
+    all_eval_datas = {}
     projects = [d for d in get_sub_dirs_in_dir(projects_dir) if d.name.endswith("out")]
     print(projects)
     for project in tqdm(projects, desc="Loading meta data:"):
@@ -373,8 +379,54 @@ def analyze_data_dir(projects_dir: Path) -> None:
             eval_data = EvalStats.from_json(
                 read_content_of_file(eval_dir / "eval_data.json")
             )
-        except Exception:
+        except FileNotFoundError:
             continue
         all_mined_vios[project.name] = mined_vio_data
+
         all_eval_datas[project.name] = eval_data
-    print("All mined violations:" + str(all_mined_vios))
+    save_content_to_file(
+        projects_dir / "eval.json",
+        json.dumps(_process_all_fix_stats(all_eval_datas, all_mined_vios), indent=2),
+    )
+
+
+def _process_all_mined_violations(mined_data: dict[str, ...]) -> dict[str, ...]:
+    amount_vio = 0
+    amount_vio_per_type = defaultdict(int)
+    for vio_data in mined_data.values():
+        amount_vio += vio_data["violation_amount"]
+        for vio_type, vio_amount in vio_data["violation_amount_dict"].items():
+            amount_vio_per_type[vio_type] += vio_amount
+    return {
+        "all_violation_amount": amount_vio,
+        "all_violation_amount_dict": amount_vio_per_type,
+    }
+
+
+def _process_all_fix_stats(
+    all_eval_datas: dict[str, ...], all_mined_vios: dict[str, ...]
+) -> dict[str, ...]:
+    combined_mined_vios = _process_all_mined_violations(all_mined_vios)
+    micro_over_all_models_per_protocol = defaultdict(float)
+    micro_over_all_models_per_type = defaultdict(float)
+    macro_acc = 0.0
+    for project, eval_data in all_eval_datas.items():
+        project_mined_vios = all_mined_vios[project]
+        macro_acc += (
+            eval_data.macro_acc * project_mined_vios["violation_amount"]
+        ) / combined_mined_vios["all_violation_amount"]
+        for prot, acc in eval_data.micro_acc.items():
+            micro_over_all_models_per_protocol[prot] += (
+                acc * project_mined_vios["violation_amount"]
+            ) / combined_mined_vios["all_violation_amount"]
+        for vio, acc in eval_data.type_micro.items():
+            micro_over_all_models_per_type[vio] += (
+                acc * project_mined_vios["violation_amount_dict"][vio]
+            ) / combined_mined_vios["all_violation_amount_dict"][vio]
+
+    return {
+        "acc": macro_acc,
+        "acc_per_protocol": micro_over_all_models_per_protocol,
+        "acc_per_type": micro_over_all_models_per_type,
+        "violations": combined_mined_vios,
+    }
