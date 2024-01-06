@@ -379,7 +379,7 @@ def analyze_data_dir(projects_dir: Path) -> None:
             eval_data = EvalStats.from_json(
                 read_content_of_file(eval_dir / "eval_data.json")
             )
-        except FileNotFoundError:
+        except Exception:
             continue
         all_mined_vios[project.name] = mined_vio_data
 
@@ -409,24 +409,41 @@ def _process_all_fix_stats(
     combined_mined_vios = _process_all_mined_violations(all_mined_vios)
     micro_over_all_models_per_protocol = defaultdict(float)
     micro_over_all_models_per_type = defaultdict(float)
+    acc_per_model = {}
     macro_acc = 0.0
     for project, eval_data in all_eval_datas.items():
-        project_mined_vios = all_mined_vios[project]
-        macro_acc += (
-            eval_data.macro_acc * project_mined_vios["violation_amount"]
-        ) / combined_mined_vios["all_violation_amount"]
-        for prot, acc in eval_data.micro_acc.items():
-            micro_over_all_models_per_protocol[prot] += (
-                acc * project_mined_vios["violation_amount"]
+        try:
+            project_mined_vios = all_mined_vios[project]
+            macro_acc += (
+                eval_data.macro_acc * project_mined_vios["violation_amount"]
             ) / combined_mined_vios["all_violation_amount"]
-        for vio, acc in eval_data.type_micro.items():
-            micro_over_all_models_per_type[vio] += (
-                acc * project_mined_vios["violation_amount_dict"][vio]
-            ) / combined_mined_vios["all_violation_amount_dict"][vio]
+            for prot, acc in eval_data.micro_acc.items():
+                micro_over_all_models_per_protocol[prot] += (
+                    acc * project_mined_vios["violation_amount"]
+                ) / combined_mined_vios["all_violation_amount"]
+            for vio, acc in eval_data.type_micro.items():
+                micro_over_all_models_per_type[vio] += (
+                    acc * project_mined_vios["violation_amount_dict"][vio]
+                ) / combined_mined_vios["all_violation_amount_dict"][vio]
+            for model, stats in eval_data.stats_per_models.items():
+                if not acc_per_model.get(model):
+                    acc_per_model[model] = {"acc": 0.0, "acc_per_type": {}}
+                acc_per_model[model]["acc"] += (
+                    stats.macro_acc() * project_mined_vios["violation_amount"]
+                ) / combined_mined_vios["all_violation_amount"]
+                for vio_type, vio_acc in stats.micro_acc_by_violation_type().items():
+                    if not acc_per_model[model]["acc_per_type"].get(vio_type):
+                        acc_per_model[model]["acc_per_type"][vio_type] = 0.0
+                    acc_per_model[model]["acc_per_type"][vio_type] += (
+                        vio_acc * project_mined_vios["violation_amount_dict"][vio_type]
+                    ) / combined_mined_vios["all_violation_amount_dict"][vio_type]
+        except Exception:
+            continue
 
     return {
         "acc": macro_acc,
         "acc_per_protocol": micro_over_all_models_per_protocol,
         "acc_per_type": micro_over_all_models_per_type,
+        "acc_per_model": acc_per_model,
         "violations": combined_mined_vios,
     }
