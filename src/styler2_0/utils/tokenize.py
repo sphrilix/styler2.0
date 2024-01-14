@@ -555,7 +555,7 @@ class ProcessedSourceFile:
             .reversed()
             .filter(lambda token: isinstance(token, Identifier))
             .filter(lambda token: token.line == violation.line)
-            .filter(lambda token: token.column <= violation.column)
+            .filter(lambda token: not token.column or token.column <= violation.column)
             .next()
         )
         return violated_name_token, violated_name_token
