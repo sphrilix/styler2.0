@@ -549,7 +549,6 @@ class ProcessedSourceFile:
 
     def _get_name_violation_ctx(self, violation: Violation) -> tuple[Token, Token]:
         assert violation.type.name.endswith("NAME")
-        assert violation.column is not None
         violated_name_token = (
             stream(self.non_ws_tokens)
             .reversed()
