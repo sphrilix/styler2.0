@@ -216,7 +216,7 @@ class Operations(Enum):
     # DELETE_TAB = DeleteOperation("\t") styler does not support
     DELETE_SPACE = (DeleteOperation(" "), 5)
     DELETE_NL = (DeleteOperation("\n"), 5)
-    NAME_ALTERING = (IdentifierRandomAlteringOperation(), 0)
+    NAME_ALTERING = (IdentifierRandomAlteringOperation(), 8)
 
     def __call__(self, code: str) -> str:
         return self.value(code)
@@ -505,7 +505,7 @@ class ThreeGramGenerator(ViolationGenerator):
         pass
 
     def _generate_violation(self, tokens: list[Token]) -> str:
-        if random.random() < -1:
+        if random.random() < 0.1:
             return self._generate_name_violations(tokens)
         three_gram = random.choice(list(self.__build_3_grams_from_tokens(tokens)))
         alternatives_with_prob = self.__get_alternatives_with_prob(three_gram[0])
