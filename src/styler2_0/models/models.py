@@ -1,7 +1,9 @@
 import json
 import os
+from contextlib import suppress
 from enum import Enum
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 from bidict import bidict
 from streamerate import stream
@@ -207,14 +209,17 @@ def evaluate(
             # Check if the fixes are valid.
             real_fixes = []
             for possible_fix in possible_fixes:
-                # Check if fix compiles and passes checkstyle without violations.
-                if (
-                    is_parseable(possible_fix.de_tokenize())
-                    and not run_checkstyle_on_str(
-                        possible_fix.de_tokenize(), version, config
-                    ).violations
-                ):
-                    real_fixes.append(possible_fix)
+                # If checkstyle report cannot be parsed something is wrong.
+                # -> no fix possible.
+                with suppress(ParseError):
+                    # Check if fix compiles and passes checkstyle without violations.
+                    if (
+                        is_parseable(possible_fix.de_tokenize())
+                        and not run_checkstyle_on_str(
+                            possible_fix.de_tokenize(), version, config
+                        ).violations
+                    ):
+                        real_fixes.append(possible_fix)
             if real_fixes:
                 shortest = min(real_fixes, key=lambda x: len(x.de_tokenize()))
                 fix_stat = FixStats(
