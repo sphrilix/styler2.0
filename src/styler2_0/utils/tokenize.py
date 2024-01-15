@@ -549,18 +549,22 @@ class ProcessedSourceFile:
 
     def _get_name_violation_ctx(self, violation: Violation) -> tuple[Token, Token]:
         assert violation.type.name.endswith("NAME")
-        violated_name_token = (
-            stream(self.non_ws_tokens)
-            .reversed()
-            .filter(lambda token: isinstance(token, Identifier))
-            .filter(lambda token: token.line == violation.line)
-            .filter(
-                lambda token: token.column <= violation.column
-                if token.column is not None
-                else True
+        if violation.column is not None:
+            violated_name_token = (
+                stream(self.non_ws_tokens)
+                .reversed()
+                .filter(lambda token: isinstance(token, Identifier))
+                .filter(lambda token: token.line == violation.line)
+                .filter(lambda token: token.column <= violation.column)
+                .next()
             )
-            .next()
-        )
+        else:
+            violated_name_token = (
+                stream(self.non_ws_tokens)
+                .filter(lambda token: isinstance(token, Identifier))
+                .filter(lambda token: token.line == violation.line)
+                .next()
+            )
         return violated_name_token, violated_name_token
 
     @staticmethod
