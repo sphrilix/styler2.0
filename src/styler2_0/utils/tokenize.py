@@ -626,6 +626,8 @@ def _process_raw_token(raw_token: Lexeme) -> Token:
 
 
 def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
+    if len(tokens) == 0:
+        return tokens
     padded_tokens = []
     for token, suc in zip(tokens[:-1], tokens[1:], strict=True):
         padded_tokens.append(token)
@@ -645,7 +647,7 @@ def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
 
 
 def _remove_eof(tokens: list[Token]) -> list[Token]:
-    if tokens[-1].text == "<EOF>":
+    if len(tokens) > 0 and tokens[-1].text == "<EOF>":
         return tokens[:-1]
     return tokens
 

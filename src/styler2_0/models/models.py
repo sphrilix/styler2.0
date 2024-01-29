@@ -200,12 +200,14 @@ def evaluate(
 
             # Process the file to be fed to the model.
             violation_content = read_content_of_file(get_files_in_dir(violation_dir)[0])
-            tokens = tokenize_java_code(violation_content)
+            try:
+                tokens = tokenize_java_code(violation_content)
+            except Exception:
+                continue
             processed_file = ProcessedSourceFile(None, tokens, report)
 
             # Get the possible fixes, by calling fix on the model.
             possible_fixes = model.fix(processed_file, top_k)
-
             # Check if the fixes are valid.
             real_fixes = []
             for possible_fix in possible_fixes:

@@ -86,6 +86,8 @@ def _build_vocab(
     )
     metadata = []
     for violation in get_sub_dirs_in_dir(build_vocabs_path):
+        if not (Path(violation) / DATA_JSON).exists():
+            continue
         metadata_json_content = read_content_of_file(Path(violation) / DATA_JSON)
         metadata.append(Metadata.from_json(metadata_json_content))
     src_vocab, trg_vocab = _get_vocabs_from_metadata(
@@ -123,6 +125,8 @@ def _build_inputs_from_vocab(
     model_input = []
     ground_truth = []
     for violation in get_sub_dirs_in_dir(input_dir):
+        if not (Path(violation) / DATA_JSON).exists():
+            continue
         metadata = Metadata.from_json(read_content_of_file(violation / DATA_JSON))
 
         violated_tokens = src_tokenizer.tokenize(metadata.violated_str)

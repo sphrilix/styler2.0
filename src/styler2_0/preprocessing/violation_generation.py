@@ -507,7 +507,10 @@ class ThreeGramGenerator(ViolationGenerator):
     def _generate_violation(self, tokens: list[Token]) -> str:
         if random.random() < 0.1:
             return self._generate_name_violations(tokens)
-        three_gram = random.choice(list(self.__build_3_grams_from_tokens(tokens)))
+        three_grams = list(self.__build_3_grams_from_tokens(tokens))
+        if not three_grams:
+            raise OperationNonApplicableException("Cannot generate on empty seq.")
+        three_gram = random.choice(three_grams)
         alternatives_with_prob = self.__get_alternatives_with_prob(three_gram[0])
         if not alternatives_with_prob:
             raise OperationNonApplicableException

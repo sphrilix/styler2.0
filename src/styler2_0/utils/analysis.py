@@ -347,6 +347,8 @@ def analyze_generated_violations(violation_dir: Path) -> None:
         for violation in tqdm(
             violations, desc=f"Analyzing generated violations of {protocol.name}"
         ):
+            if not Path(violation / "data.json").exists():
+                continue
             data_json = json.loads(read_content_of_file(violation / "data.json"))
             statistics_per_protocol["violations_per_type"][
                 data_json["violation_type"]

@@ -29,7 +29,7 @@ CHECKSTYLE_RUN_CMD = (
 CHECKSTYLE_JAR_NAME = "checkstyle-{}-all.jar"
 CHECKSTYLE_CONF_REG = re.compile(
     r".?((checkstyle)|(check-style)|(sun)|(google))[-_]?"
-    r"((config)|(configuration)|(checks)|(checker)|(rules))?.xml"
+    r"((config)|(configuration)|(checks)|(checker)|(rules)|(litterbox))?.xml"
 )
 CHECKSTYLE_TEMP_PATH = Path(os.path.join(CURR_DIR, "../../../checkstyle-tmp"))
 JAVA_TEMP_FILE = CHECKSTYLE_TEMP_PATH / Path("Temp.java")
