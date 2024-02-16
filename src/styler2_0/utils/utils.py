@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from argparse import Action
 from collections.abc import Callable, Sequence
@@ -193,3 +194,26 @@ def load_yaml_file(path: Path) -> dict[str, Any]:
     """
     raw_str = read_content_of_file(path)
     return yaml.load(raw_str, Loader=SafeLoader)
+
+
+def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
+    projects = get_sub_dirs_in_dir(projects_dir)
+    count = 0
+    for project in projects:
+        mined_vios = project / "mined_violations"
+        for vio_dir in get_sub_dirs_in_dir(mined_vios):
+            vio_json = json.loads(read_content_of_file(vio_dir / "data.json"))
+            if "fix_str" in vio_json and "violation_str" in vio_json:
+                violated_str = vio_json["violation_str"]
+                non_violated_str = vio_json["fix_str"]
+                vio_save = save / str(count)
+                os.makedirs(vio_save, exist_ok=True)
+                save_content_to_file(
+                    vio_save / "data.json",
+                    json.dumps(
+                        {
+                            "violated_str": violated_str,
+                            "non_violated_str": non_violated_str,
+                        }
+                    ),
+                )

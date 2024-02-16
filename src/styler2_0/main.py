@@ -22,7 +22,7 @@ from src.styler2_0.utils.checkstyle import (
 )
 from src.styler2_0.utils.git_utils import process_git_repository
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
-from src.styler2_0.utils.utils import enum_action
+from src.styler2_0.utils.utils import collect_git_pre_training_data, enum_action
 from styler2_0.utils.analysis import (
     analyze_all_eval_jsons,
     analyze_data_dir,
@@ -45,6 +45,7 @@ class Tasks(Enum):
     EVAL = "EVAL"
     ANALYZE_EVAL = "ANALYZE_EVAL"
     ANALYZE_DIR = "ANALYZE_DIR"
+    PRE_TRAINING = "PRE_TRAINING"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -96,6 +97,8 @@ def main() -> int:
             analyze_all_eval_jsons(parsed_args.eval_dir)
         case Tasks.ANALYZE_DIR:
             analyze_data_dir(parsed_args.dir)
+        case Tasks.PRE_TRAINING:
+            _run_pre_training(parsed_args)
         case _:
             return 1
     return 0
@@ -177,6 +180,15 @@ def _run_violation_mining(repo_dir: Path, save: Path) -> None:
     process_git_repository(repo_dir, save, version, config)
 
 
+def _run_pre_training(parsed_args: Namespace) -> None:
+    """
+    Runs the pre-training.
+    :param parsed_args: The parsed args for pre-training.
+    :return:
+    """
+    collect_git_pre_training_data(parsed_args.projects_dir, parsed_args.save)
+
+
 def _set_up_arg_parser() -> ArgumentParser:
     """
     Sets up the argument parser.
@@ -192,6 +204,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     eval_sub_parser = sub_parser.add_parser(str(Tasks.EVAL))
     analyze_eval_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_EVAL))
     analyze_dir_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_DIR))
+    pre_training_sub_parser = sub_parser.add_parser(str(Tasks.PRE_TRAINING))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -239,6 +252,10 @@ def _set_up_arg_parser() -> ArgumentParser:
 
     # Set up arguments for analyzing directory
     analyze_dir_sub_parser.add_argument("--dir", type=Path, required=True)
+
+    # Set up arguments for pre-training
+    pre_training_sub_parser.add_argument("--projects_dir", required=True, type=Path)
+    pre_training_sub_parser.add_argument("--save", required=True, type=Path)
 
     return arg_parser
 
