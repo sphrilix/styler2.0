@@ -10,6 +10,8 @@ from pydriller import Commit, Git, Repository
 from streamerate import stream
 from tqdm import tqdm
 
+from src.styler2_0.preprocessing.violation_generation import filter_relevant_tokens
+from src.styler2_0.utils.analysis import analyze_mined_violations
 from src.styler2_0.utils.checkstyle import (
     CheckstyleFileReport,
     ViolationType,
@@ -17,8 +19,8 @@ from src.styler2_0.utils.checkstyle import (
     run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.maven import pom_includes_checkstyle_suppression
+from src.styler2_0.utils.tokenize import tokenize_with_reports
 from src.styler2_0.utils.utils import save_content_to_file
-from styler2_0.utils.analysis import analyze_mined_violations
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
@@ -270,6 +272,10 @@ def _save_violations(
             violation.violation_report.path,
             violation_dir,
         )
+        vio_processed = next(
+            iter(tokenize_with_reports(frozenset([violation.violation_report])))
+        )
+        fix_processed = None
         if violation.is_fixed():
             fix_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "fix/"
             fix_dir.mkdir(parents=True)
@@ -278,6 +284,16 @@ def _save_violations(
                 violation.fix_report.path,
                 fix_dir,
             )
+            fix_processed = next(
+                iter(tokenize_with_reports(frozenset([violation.fix_report])))
+            )
+        interesting_tokens = None
+        if fix_processed:
+            with suppress(Exception):
+                interesting_tokens = filter_relevant_tokens(
+                    fix_processed, vio_processed
+                )
+
         meta_data = {
             "violation_hash": violation.violations_hash,
             "fix_hash": violation.fix_hash,
@@ -286,6 +302,9 @@ def _save_violations(
                 iter(violation.violation_report.violations)
             ).type.value,
         }
+        if interesting_tokens:
+            meta_data["violation_str"] = interesting_tokens[1]
+            meta_data["fix_str"] = interesting_tokens[0]
         save_content_to_file(
             output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",
             json.dumps(meta_data),
