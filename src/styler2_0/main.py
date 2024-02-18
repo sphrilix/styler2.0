@@ -187,6 +187,9 @@ def _run_pre_training(parsed_args: Namespace) -> None:
     :return:
     """
     collect_git_pre_training_data(parsed_args.projects_dir, parsed_args.save)
+    for model in Models:
+        preprocessing(parsed_args.save, parsed_args.splits, model)
+        train(model, parsed_args.save / "model_data", parsed_args.epochs)
 
 
 def _set_up_arg_parser() -> ArgumentParser:
@@ -256,6 +259,10 @@ def _set_up_arg_parser() -> ArgumentParser:
     # Set up arguments for pre-training
     pre_training_sub_parser.add_argument("--projects_dir", required=True, type=Path)
     pre_training_sub_parser.add_argument("--save", required=True, type=Path)
+    pre_training_sub_parser.add_argument(
+        "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
+    )
+    pre_training_sub_parser.add_argument("--epochs", type=int, required=True)
 
     return arg_parser
 

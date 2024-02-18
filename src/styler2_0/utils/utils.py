@@ -197,16 +197,32 @@ def load_yaml_file(path: Path) -> dict[str, Any]:
 
 
 def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
+    """
+    Collect pretraining data from mined violations.
+    :param projects_dir: The directory where the mined repos are.
+    :param save: Directory to save the data.
+    :return:
+    """
     projects = get_sub_dirs_in_dir(projects_dir)
     count = 0
     for project in projects:
         mined_vios = project / "mined_violations"
+        checkstyle_data = json.loads(read_content_of_file(mined_vios / "data.json"))
+        cs_version = checkstyle_data["version"]
+        cs_conf = checkstyle_data["config"]
         for vio_dir in get_sub_dirs_in_dir(mined_vios):
             vio_json = json.loads(read_content_of_file(vio_dir / "data.json"))
             if "fix_str" in vio_json and "violation_str" in vio_json:
+                non_violated_src = next(iter(get_files_in_dir(vio_dir / "violation")))
+                violated_src = next(iter(get_files_in_dir(vio_dir / "fix")))
+                vio_type = vio_json["violation_type"]
                 violated_str = vio_json["violation_str"]
                 non_violated_str = vio_json["fix_str"]
-                vio_save = save / str(count)
+
+                # Skip empty training samples.
+                if not (violated_str and non_violated_str):
+                    continue
+                vio_save = save / "violations/pre_training" / str(count)
                 os.makedirs(vio_save, exist_ok=True)
                 save_content_to_file(
                     vio_save / "data.json",
@@ -214,6 +230,12 @@ def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
                         {
                             "violated_str": violated_str,
                             "non_violated_str": non_violated_str,
+                            "version": cs_version,
+                            "config": cs_conf,
+                            "non_violated_source": str(non_violated_src),
+                            "violated_source": str(violated_src),
+                            "violation_type": vio_type,
                         }
                     ),
                 )
+                count += 1
