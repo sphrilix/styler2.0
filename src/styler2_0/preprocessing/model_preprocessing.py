@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from math import isclose
 from pathlib import Path
 from random import shuffle
@@ -177,7 +178,11 @@ def _build_model_tokenizers(model: Models) -> tuple[ModelTokenizer, ModelTokeniz
 
 
 def preprocessing(
-    project_dir: Path, splits: (float, float, float), model: Models = Models.LSTM
+    project_dir: Path,
+    splits: (float, float, float),
+    model: Models = Models.LSTM,
+    src_vocab_path: Path = None,
+    trg_vocab_path: Path = None,
 ) -> None:
     """
     Build the input for the lstm model.
@@ -191,9 +196,36 @@ def preprocessing(
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
-        src_vocab, trg_vocab = _build_vocab(
-            protocol_violation_dir, src_tokenizer, trg_tokenizer, model
-        )
+        if not (src_vocab_path and trg_vocab_path):
+            src_vocab, trg_vocab = _build_vocab(
+                protocol_violation_dir, src_tokenizer, trg_tokenizer, model
+            )
+        else:
+            os.makedirs(
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / model.name.lower(),
+                exist_ok=True,
+            )
+            shutil.copy(
+                src_vocab_path,
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / model.name.lower()
+                / SRC_VOCAB_FILE,
+            )
+            shutil.copy(
+                trg_vocab_path,
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / model.name.lower()
+                / TRG_VOCAB_FILE,
+            )
+            src_vocab = Vocabulary.load(src_vocab_path)
+            trg_vocab = Vocabulary.load(trg_vocab_path)
 
         # Process train examples
         train_input_dir = (

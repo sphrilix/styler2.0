@@ -124,9 +124,17 @@ def _load_vocabs(project_dir: Path) -> tuple[Vocabulary, Vocabulary]:
     )
 
 
-def train(model_type: Models, model_dir: Path, epochs: int) -> None:
+def train(
+    model_type: Models,
+    model_dir: Path,
+    epochs: int,
+    lr: float = 1e-3,
+    from_checkpoint: Path = None,
+) -> None:
     """
     Train the given model on each protocol separately.
+    :param from_checkpoint: The checkpoint to load.
+    :param lr: The learning rate.
     :param model_type: The given model.
     :param model_dir: Project dir with the data.
     :param epochs: Count epochs.
@@ -137,15 +145,23 @@ def train(model_type: Models, model_dir: Path, epochs: int) -> None:
         model_protocol_dir = model_protocol_dir / model_type.name.lower()
         src_vocab, trg_vocab = _load_vocabs(model_protocol_dir)
 
-        model = model_type.value.build_from_config(
-            src_vocab, trg_vocab, model_protocol_dir / CHECKPOINT_FOLDER
-        )
+        if not from_checkpoint:
+            model = model_type.value.build_from_config(
+                src_vocab, trg_vocab, model_protocol_dir / CHECKPOINT_FOLDER
+            )
+        else:
+            model = model_type.value.load_from_config(
+                src_vocab,
+                trg_vocab,
+                from_checkpoint,
+                model_protocol_dir / CHECKPOINT_FOLDER,
+            )
         model.to(model.device)
         train_data, val_data = _load_train_and_val_data(
             model_protocol_dir, src_vocab, trg_vocab, model
         )
         criterion = nn.CrossEntropyLoss(ignore_index=src_vocab[src_vocab.pad])
-        optimizer = Adam(model.parameters())
+        optimizer = Adam(model.parameters(), lr=lr)
         model.fit(epochs, train_data, val_data, criterion, optimizer)
 
 

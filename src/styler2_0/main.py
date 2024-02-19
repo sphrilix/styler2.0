@@ -75,17 +75,11 @@ def main() -> int:
         case Tasks.ADAPT_THREE_GRAMS:
             adapt_styler_three_gram_csv(parsed_args.in_file, parsed_args.out_file)
         case Tasks.PREPROCESSING:
-            preprocessing(
-                parsed_args.project_dir, parsed_args.splits, parsed_args.model
-            )
+            _run_preprocessing(parsed_args)
         case Tasks.MINE_VIOLATIONS:
             _run_violation_mining(parsed_args.repo, parsed_args.save)
         case Tasks.TRAIN:
-            train(
-                parsed_args.model,
-                parsed_args.path,
-                parsed_args.epochs,
-            )
+            _run_train(parsed_args)
         case Tasks.EVAL:
             _run_evaluation(
                 parsed_args.model,
@@ -102,6 +96,16 @@ def main() -> int:
         case _:
             return 1
     return 0
+
+
+def _run_preprocessing(parsed_args: Namespace) -> None:
+    preprocessing(
+        parsed_args.project_dir,
+        parsed_args.splits,
+        parsed_args.model,
+        parsed_args.src_vocab,
+        parsed_args.trg_vocab,
+    )
 
 
 def _run_violation_generation(parsed_args: Namespace) -> None:
@@ -192,6 +196,19 @@ def _run_pre_training(parsed_args: Namespace) -> None:
         train(model, parsed_args.save / "model_data", parsed_args.epochs)
 
 
+def _run_train(parsed_args: Namespace) -> None:
+    if not parsed_args.from_pretrained:
+        train(parsed_args.model, parsed_args.path, parsed_args.epochs, parsed_args.lr)
+    else:
+        train(
+            parsed_args.model,
+            parsed_args.path,
+            parsed_args.epochs,
+            parsed_args.lr,
+            parsed_args.from_pretrained,
+        )
+
+
 def _set_up_arg_parser() -> ArgumentParser:
     """
     Sets up the argument parser.
@@ -234,11 +251,15 @@ def _set_up_arg_parser() -> ArgumentParser:
     preprocessing_sub_parser.add_argument(
         "--model", action=enum_action(Models), required=True
     )
+    preprocessing_sub_parser.add_argument("--src_vocab", type=Path, default=None)
+    preprocessing_sub_parser.add_argument("--trg_vocab", type=Path, default=None)
 
     # Set up arguments for model training
     train_sub_parser.add_argument("--model", action=enum_action(Models), required=True)
     train_sub_parser.add_argument("--path", type=Path, required=True)
     train_sub_parser.add_argument("--epochs", type=int, required=True)
+    train_sub_parser.add_argument("--lr", type=float, default=1e-3)
+    train_sub_parser.add_argument("--from_pretrained", type=Path, default=None)
 
     # Set up arguments for mining violations
     mine_violations_sub_parser.add_argument("--repo", type=Path, required=True)

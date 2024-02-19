@@ -252,18 +252,26 @@ class ModelBase(nn.Module, ABC):
 
     @classmethod
     def load_from_config(
-        cls, src_vocab: Vocabulary, trg_vocab: Vocabulary, save: Path
+        cls,
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
+        checkpoint: Path,
+        save: Path = None,
     ) -> "ModelBase":
         """
         Load the model from the given path.
+        :param save: The new save directory.
         :param src_vocab: The input vocabulary.
         :param trg_vocab: The output vocabulary.
-        :param save: The path to store the checkpoints.
+        :param checkpoint: The path to store the checkpoints.
         :return: Returns the loaded model.
         """
         # set parent of as save-path for further training
-        model = cls.build_from_config(src_vocab, trg_vocab, save.parent)
-        model.load_state_dict(torch.load(save))
+        if not save:
+            model = cls.build_from_config(src_vocab, trg_vocab, checkpoint.parent)
+        else:
+            model = cls.build_from_config(src_vocab, trg_vocab, save)
+        model.load_state_dict(torch.load(checkpoint))
         return model
 
     @abstractmethod
