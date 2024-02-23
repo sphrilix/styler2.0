@@ -23,16 +23,16 @@ poetry run styler2_0 PREPROCESSING --project_dir "$output_dir" --model NGRAM --s
 
 echo "Training all models"
 echo "Train LSTM on $1"
-poetry run styler2_0 TRAIN --model LSTM --epochs 100 --path "$1" --lr 1e-5 --from_pretrained "$pre_training_dir"/lstm/checkpoints/lstm.pt
+poetry run styler2_0 TRAIN --model LSTM --epochs 100 --path "$output_dir"/model_data --lr 1e-5 --from_pretrained "$pre_training_dir"/lstm/checkpoints/lstm.pt
 
 echo "Train TRANSFORMER on $1"
-poetry run styler2_0 TRAIN --model TRANSFORMER --epochs 100 --path "$1" --lr 1e-5 --from_pretrained "$pre_training_dir"/transformer/checkpoints/transformer.pt
+poetry run styler2_0 TRAIN --model TRANSFORMER --epochs 100 --path "$output_dir"/model_data --lr 1e-5 --from_pretrained "$pre_training_dir"/transformer/checkpoints/transformer.pt
 
 echo "Train ANN on $1"
-poetry run styler2_0 TRAIN --model ANN --epochs 100 --path "$1" --lr 1e-5 --from_pretrained "$pre_training_dir"/ann/checkpoints/ann.pt
+poetry run styler2_0 TRAIN --model ANN --epochs 100 --path "$output_dir"/model_data --lr 1e-5 --from_pretrained "$pre_training_dir"/ann/checkpoints/ann.pt
 
 echo "Train NGRAM on $1"
-poetry run styler2_0 TRAIN --model NGRAM --epochs 100 --path "$1" --lr 1e-5 --from_pretrained "$pre_training_dir"/ngram/checkpoints/ngram.pt
+poetry run styler2_0 TRAIN --model NGRAM --epochs 100 --path "$output_dir"/model_data --lr 1e-5 --from_pretrained "$pre_training_dir"/ngram/checkpoints/ngram.pt
 
 
 echo "Evaluating all models"
