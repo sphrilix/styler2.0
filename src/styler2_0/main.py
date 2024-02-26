@@ -20,9 +20,12 @@ from src.styler2_0.utils.checkstyle import (
     find_version_by_trying,
     run_checkstyle_on_dir,
 )
-from src.styler2_0.utils.git_utils import process_git_repository
+from src.styler2_0.utils.git_utils import (
+    collect_git_pre_training_data,
+    process_git_repository,
+)
 from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
-from src.styler2_0.utils.utils import collect_git_pre_training_data, enum_action
+from src.styler2_0.utils.utils import enum_action
 from styler2_0.utils.analysis import (
     analyze_all_eval_jsons,
     analyze_data_dir,
