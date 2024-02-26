@@ -135,4 +135,6 @@ class Vocabulary:
         :param other: The given vocabulary.
         :return:
         """
-        self._vocab.inverse.update(other._vocab.inverse)
+        for v in other._vocab.values():
+            if v not in self._vocab.inverse:
+                self._vocab[len(self._vocab)] = v
