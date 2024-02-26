@@ -343,7 +343,7 @@ def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
                 model_src_vocabs[model_dir].merge_into(
                     Vocabulary.load(model_data_dir / "src_vocab.txt")
                 )
-                model_trg_vocabs[model_dir].update(
+                model_trg_vocabs[model_dir].merge_into(
                     Vocabulary.load(model_data_dir / "trg_vocab.txt")
                 )
         mined_vios = project / "mined_violations"
