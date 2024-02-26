@@ -8,8 +8,11 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import yaml
+from bidict import bidict
 from chardet import detect
 from yaml import SafeLoader
+
+from styler2_0.utils.vocab import Vocabulary
 
 T = TypeVar("T")
 E = TypeVar("E", bound=Enum)
@@ -203,9 +206,26 @@ def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
     :param save: Directory to save the data.
     :return:
     """
+    models_dirs = ["ann", "lstm", "transformer", "ngram"]
+    model_src_vocabs = {m: Vocabulary(bidict()) for m in models_dirs}
+    model_trg_vocabs = {m: Vocabulary(bidict()) for m in models_dirs}
+    protocols = ["random", "three_gram"]
     projects = get_sub_dirs_in_dir(projects_dir)
     count = 0
     for project in projects:
+        if project.name == "pre_training":
+            continue
+        for protocol in protocols:
+            for model_dir in models_dirs:
+                model_data_dir = project / "model_data" / protocol / model_dir
+                if not model_data_dir.exists():
+                    continue
+                model_src_vocabs[model_dir].merge_into(
+                    Vocabulary.load(model_data_dir / "src_vocab.txt")
+                )
+                model_trg_vocabs[model_dir].update(
+                    Vocabulary.load(model_data_dir / "trg_vocab.txt")
+                )
         mined_vios = project / "mined_violations"
         checkstyle_data = json.loads(read_content_of_file(mined_vios / "data.json"))
         cs_version = checkstyle_data["version"]
@@ -239,3 +259,8 @@ def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
                     ),
                 )
                 count += 1
+    for model_dir in models_dirs:
+        model_data_dir = save / "pre_training/model_data" / model_dir
+        os.makedirs(model_data_dir, exist_ok=True)
+        model_src_vocabs[model_dir].save(model_data_dir / "src_vocab.txt")
+        model_trg_vocabs[model_dir].save(model_data_dir / "trg_vocab.txt")

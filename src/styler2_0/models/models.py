@@ -15,8 +15,10 @@ from tqdm import tqdm
 from src.styler2_0.models.ann import ANN
 from src.styler2_0.models.lstm import LSTM
 from src.styler2_0.models.model_base import ModelBase
+from src.styler2_0.models.n_gram import NGram
 from src.styler2_0.models.transformer import Transformer
 from src.styler2_0.preprocessing.violation_generation import Protocol
+from src.styler2_0.utils.analysis import EvalStatsPerModel, FixStats
 from src.styler2_0.utils.checkstyle import run_checkstyle_on_dir, run_checkstyle_on_str
 from src.styler2_0.utils.java import is_parseable
 from src.styler2_0.utils.tokenize import ProcessedSourceFile, tokenize_java_code
@@ -27,8 +29,6 @@ from src.styler2_0.utils.utils import (
     save_content_to_file,
 )
 from src.styler2_0.utils.vocab import Vocabulary
-from styler2_0.models.n_gram import NGram
-from styler2_0.utils.analysis import EvalStatsPerModel, FixStats
 
 TRAIN_DATA = Path("train")
 TRAIN_SRC = TRAIN_DATA / Path("input.txt")

@@ -128,3 +128,11 @@ class Vocabulary:
     @property
     def special_tokens(self) -> list[str]:
         return [self._sos, self._eos, self._pad, self._unk]
+
+    def merge_into(self, other: "Vocabulary") -> None:
+        """
+        Merge the given vocabulary into the current one.
+        :param other: The given vocabulary.
+        :return:
+        """
+        self._vocab.inverse.update(other._vocab.inverse)
