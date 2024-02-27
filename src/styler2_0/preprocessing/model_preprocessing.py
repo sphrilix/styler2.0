@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+from contextlib import suppress
 from math import isclose
 from pathlib import Path
 from random import shuffle
@@ -208,22 +209,23 @@ def preprocessing(
                 / model.name.lower(),
                 exist_ok=True,
             )
-            shutil.copy(
-                src_vocab_path,
-                protocol_violation_dir
-                / MODEL_DATA_PATH
-                / _get_protocol_from_path(protocol_violation_dir)
-                / model.name.lower()
-                / SRC_VOCAB_FILE,
-            )
-            shutil.copy(
-                trg_vocab_path,
-                protocol_violation_dir
-                / MODEL_DATA_PATH
-                / _get_protocol_from_path(protocol_violation_dir)
-                / model.name.lower()
-                / TRG_VOCAB_FILE,
-            )
+            with suppress(shutil.SameFileError):
+                shutil.copy(
+                    src_vocab_path,
+                    protocol_violation_dir
+                    / MODEL_DATA_PATH
+                    / _get_protocol_from_path(protocol_violation_dir)
+                    / model.name.lower()
+                    / SRC_VOCAB_FILE,
+                )
+                shutil.copy(
+                    trg_vocab_path,
+                    protocol_violation_dir
+                    / MODEL_DATA_PATH
+                    / _get_protocol_from_path(protocol_violation_dir)
+                    / model.name.lower()
+                    / TRG_VOCAB_FILE,
+                )
             src_vocab = Vocabulary.load(src_vocab_path)
             trg_vocab = Vocabulary.load(trg_vocab_path)
 
