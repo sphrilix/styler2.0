@@ -195,7 +195,15 @@ def _run_pre_training(parsed_args: Namespace) -> None:
     """
     collect_git_pre_training_data(parsed_args.projects_dir, parsed_args.save)
     for model in Models:
-        preprocessing(parsed_args.save, parsed_args.splits, model)
+        preprocessing(
+            parsed_args.save,
+            parsed_args.splits,
+            model,
+            parsed_args.save
+            / f"model_data/pre_training/{model.name.lower()}/src_vocab.txt",
+            parsed_args.save
+            / f"model_data/pre_training/{model.name.lower()}/trg_vocab.txt",
+        )
         train(model, parsed_args.save / "model_data", parsed_args.epochs)
 
 
