@@ -380,7 +380,7 @@ def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
                 )
                 count += 1
     for model_dir in models_dirs:
-        model_data_dir = save / "pre_training/model_data" / model_dir
+        model_data_dir = save / "model_data" / model_dir
         os.makedirs(model_data_dir, exist_ok=True)
         save_content_to_file(
             model_data_dir / "src_vocab.txt", model_src_vocabs[model_dir].to_json()
