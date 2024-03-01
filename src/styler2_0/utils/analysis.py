@@ -1,4 +1,5 @@
 import json
+import random
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -413,6 +414,8 @@ def _process_all_fix_stats(
     micro_over_all_models_per_type = defaultdict(float)
     acc_per_model = {}
     macro_acc = 0.0
+    all_stats_per_type = _all_stats_per_type(all_eval_datas)
+    normalized_acc = _normalized_acc_per_type(all_stats_per_type)
     for project, eval_data in all_eval_datas.items():
         try:
             project_mined_vios = all_mined_vios[project]
@@ -447,5 +450,115 @@ def _process_all_fix_stats(
         "acc_per_protocol": micro_over_all_models_per_protocol,
         "acc_per_type": micro_over_all_models_per_type,
         "acc_per_model": acc_per_model,
+        "normalized_acc": normalized_acc,
         "violations": combined_mined_vios,
     }
+
+
+def _normalized_acc_per_type(all_stats_per_type: dict) -> dict:
+    normalized = defaultdict(dict)
+    minimal_count = 10
+    for _ in range(1000):
+        sampled_violations = _sample_vios(all_stats_per_type, minimal_count)
+        _calc_norm_acc_per_model(
+            all_stats_per_type, minimal_count, normalized, sampled_violations
+        )
+
+        _calc_norm_acc_over_all(
+            all_stats_per_type, minimal_count, normalized, sampled_violations
+        )
+
+    normalized["combined"]["acc"] = sum(
+        normalized["combined"]["acc_per_type"].values()
+    ) / len(normalized["combined"]["acc_per_type"])
+
+    return normalized
+
+
+def _calc_norm_acc_per_model(
+    all_stats_per_type: dict,
+    minimal_count: int,
+    normalized: dict,
+    sampled_violations: dict,
+) -> None:
+    for model, stats_per_type in all_stats_per_type.items():
+        normalized_per_model = defaultdict(float)
+        for vio_type, files in sampled_violations.items():
+            sampled = [
+                next(iter(vio.values()))
+                for vio in stats_per_type[vio_type]
+                if next(iter(vio.keys())) in files
+            ]
+            sampled_fixed = len([fs for fs in sampled if any(s.fixed for s in fs)])
+            normalized_per_model[vio_type] += sampled_fixed / minimal_count
+        previous_acc = (
+            0.0 if not normalized[model].get("acc") else normalized[model]["acc"]
+        )
+        previous_per_type = (
+            normalized[model]["acc_per_type"]
+            if normalized[model].get("acc_per_type")
+            else {vt: 0.0 for vt in sampled_violations}
+        )
+        normalized[model] = {
+            "acc": previous_acc
+            + sum(normalized_per_model.values()) / len(normalized_per_model) / 1000,
+            "acc_per_type": {
+                vt: acc + normalized_per_model[vt] / 1000
+                for vt, acc in previous_per_type.items()
+            },
+        }
+
+
+def _calc_norm_acc_over_all(
+    all_stats_per_type: dict,
+    minimal_count: int,
+    normalized: dict,
+    sampled_violations: dict,
+) -> None:
+    fixed_over_models = defaultdict(set)
+    for vio_type, vios in sampled_violations.items():
+        for _, stats_per_type in all_stats_per_type.items():
+            fixed_per_type = set()
+            for vio in vios:
+                curr_vio = next(
+                    fs
+                    for fs in stats_per_type[vio_type]
+                    if next(iter(fs.keys())) == vio
+                )
+                if any(curr.fixed for curr in next(iter(curr_vio.values()))):
+                    fixed_per_type.add(next(iter(curr_vio.keys())))
+
+            fixed_over_models[vio_type].update(fixed_per_type)
+    for vio_type, fixed in fixed_over_models.items():
+        if not normalized["combined"].get("acc_per_type"):
+            normalized["combined"]["acc_per_type"] = {}
+        if not normalized["combined"]["acc_per_type"].get(vio_type):
+            normalized["combined"]["acc_per_type"][vio_type] = 0.0
+        normalized["combined"]["acc_per_type"][vio_type] += (
+            len(fixed) / minimal_count / 1000
+        )
+
+
+def _sample_vios(all_stats_per_type: dict, min_amount: int) -> dict:
+    sampled_violations = {}
+    for vio_type, vios in next(iter(all_stats_per_type.values())).items():
+        if len(vios) < min_amount:
+            continue
+        vios_per_type = random.choices(
+            [next(iter(vio.keys())) for vio in vios], k=min_amount
+        )
+        sampled_violations[vio_type] = vios_per_type
+    return sampled_violations
+
+
+def _all_stats_per_type(all_eval_datas: dict) -> dict:
+    all_stats_per_type = defaultdict(dict)
+    for ps in all_eval_datas.values():
+        for model, stats in ps.stats_per_models.items():
+            for vio_type, stats_per_type in stats.grouped_by_violation_type.items():
+                if not all_stats_per_type.get(model):
+                    all_stats_per_type[model] = {}
+                if not all_stats_per_type[model].get(vio_type):
+                    all_stats_per_type[model][vio_type] = []
+                all_stats_per_type[model][vio_type].extend(stats_per_type)
+    return all_stats_per_type
