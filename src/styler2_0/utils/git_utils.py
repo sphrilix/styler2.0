@@ -29,6 +29,7 @@ from src.styler2_0.utils.utils import (
     save_content_to_file,
 )
 from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.utils.java import NonParseableException
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
@@ -273,50 +274,51 @@ def _save_violations(
     """
     git_repo = Git(str(input_dir))
     for i, violation in tqdm(enumerate(commit_reports), desc="Saving violations"):
-        git_repo.checkout(violation.violations_hash)
-        violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
-        violation_dir.mkdir(parents=True)
-        shutil.copy(
-            violation.violation_report.path,
-            violation_dir,
-        )
-        vio_processed = next(
-            iter(tokenize_with_reports(frozenset([violation.violation_report])))
-        )
-        fix_processed = None
-        if violation.is_fixed():
-            fix_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "fix/"
-            fix_dir.mkdir(parents=True)
-            git_repo.checkout(violation.fix_hash)
+        with suppress(NonParseableException):
+            git_repo.checkout(violation.violations_hash)
+            violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
+            violation_dir.mkdir(parents=True)
             shutil.copy(
-                violation.fix_report.path,
-                fix_dir,
+                violation.violation_report.path,
+                violation_dir,
             )
-            fix_processed = next(
-                iter(tokenize_with_reports(frozenset([violation.fix_report])))
+            vio_processed = next(
+                iter(tokenize_with_reports(frozenset([violation.violation_report])))
             )
-        interesting_tokens = None
-        if fix_processed:
-            with suppress(Exception):
-                interesting_tokens = filter_relevant_tokens(
-                    fix_processed, vio_processed
+            fix_processed = None
+            if violation.is_fixed():
+                fix_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "fix/"
+                fix_dir.mkdir(parents=True)
+                git_repo.checkout(violation.fix_hash)
+                shutil.copy(
+                    violation.fix_report.path,
+                    fix_dir,
                 )
+                fix_processed = next(
+                    iter(tokenize_with_reports(frozenset([violation.fix_report])))
+                )
+            interesting_tokens = None
+            if fix_processed:
+                with suppress(Exception):
+                    interesting_tokens = filter_relevant_tokens(
+                        fix_processed, vio_processed
+                    )
 
-        meta_data = {
-            "violation_hash": violation.violations_hash,
-            "fix_hash": violation.fix_hash,
-            "fixed": violation.is_fixed(),
-            "violation_type": next(
-                iter(violation.violation_report.violations)
-            ).type.value,
-        }
-        if interesting_tokens:
-            meta_data["violation_str"] = interesting_tokens[1]
-            meta_data["fix_str"] = interesting_tokens[0]
-        save_content_to_file(
-            output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",
-            json.dumps(meta_data),
-        )
+            meta_data = {
+                "violation_hash": violation.violations_hash,
+                "fix_hash": violation.fix_hash,
+                "fixed": violation.is_fixed(),
+                "violation_type": next(
+                    iter(violation.violation_report.violations)
+                ).type.value,
+            }
+            if interesting_tokens:
+                meta_data["violation_str"] = interesting_tokens[1]
+                meta_data["fix_str"] = interesting_tokens[0]
+            save_content_to_file(
+                output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",
+                json.dumps(meta_data),
+            )
 
 
 def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
