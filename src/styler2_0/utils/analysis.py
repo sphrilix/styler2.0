@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
@@ -562,3 +563,67 @@ def _all_stats_per_type(all_eval_datas: dict) -> dict:
                     all_stats_per_type[model][vio_type] = []
                 all_stats_per_type[model][vio_type].extend(stats_per_type)
     return all_stats_per_type
+
+
+def analyze_pre_train_data(pre_train_dir: Path) -> None:
+    """
+    Analyze the pre-train data.
+    :param pre_train_dir: The directory with the pre-train data.
+    :return:
+    """
+    pre_train_dirs = get_sub_dirs_in_dir(pre_train_dir / "violations/pre_training")
+    pre_train_amount_dict = defaultdict(int)
+    changed_lines = []
+    for pre_train in tqdm(pre_train_dirs, desc="Analyzing pre train data"):
+        pre_train_data = json.loads(read_content_of_file(pre_train / "data.json"))
+        pre_train_amount_dict[pre_train_data["violation_type"]] += 1
+        changed_lines.append(
+            _changed_lines(
+                pre_train_data["violated_source"], pre_train_data["non_violated_source"]
+            )
+        )
+
+    pre_train_amount = sum(pre_train_amount_dict.values())
+    pre_train_data = {
+        "pre_train_amount": pre_train_amount,
+        "pre_train_amount_dict": dict(pre_train_amount_dict),
+        "changed_lines_avg": sum(changed_lines) / len(changed_lines),
+    }
+
+    print(pre_train_data)
+    save_content_to_file(
+        pre_train_dir / "analysis.json", json.dumps(pre_train_data, indent=2)
+    )
+
+
+def _changed_lines(violated_source: str, non_violated_source: str) -> int:
+    diff = os.popen(
+        f"git diff --no-index {violated_source} {non_violated_source}"
+    ).read()
+    diff_lines = diff.split("\n")
+    diff_lines = diff_lines[5:]
+    removed_lines = 0
+    added_lines = 0
+    changed_lines = 0
+    for line in diff_lines:
+        if line.startswith("-"):
+            removed_lines += 1
+            continue
+
+        if line.startswith("+"):
+            added_lines += 1
+            continue
+
+        if removed_lines == added_lines:
+            changed_lines += removed_lines
+        else:
+            cl = abs(removed_lines - added_lines)
+            if removed_lines > added_lines:
+                changed_lines += cl + (removed_lines - cl)
+            else:
+                changed_lines += cl + (added_lines - cl)
+
+        removed_lines = 0
+        added_lines = 0
+
+    return changed_lines

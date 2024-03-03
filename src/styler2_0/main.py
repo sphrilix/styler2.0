@@ -30,6 +30,7 @@ from styler2_0.utils.analysis import (
     analyze_all_eval_jsons,
     analyze_data_dir,
     analyze_generated_violations,
+    analyze_pre_train_data,
 )
 
 
@@ -49,6 +50,7 @@ class Tasks(Enum):
     ANALYZE_EVAL = "ANALYZE_EVAL"
     ANALYZE_DIR = "ANALYZE_DIR"
     PRE_TRAINING = "PRE_TRAINING"
+    ANALYZE_PRE_TRAINING = "ANALYZE_PRE_TRAINING"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -96,6 +98,8 @@ def main() -> int:
             analyze_data_dir(parsed_args.dir)
         case Tasks.PRE_TRAINING:
             _run_pre_training(parsed_args)
+        case Tasks.ANALYZE_PRE_TRAINING:
+            analyze_pre_train_data(parsed_args.dir)
         case _:
             return 1
     return 0
@@ -236,6 +240,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     analyze_eval_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_EVAL))
     analyze_dir_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_DIR))
     pre_training_sub_parser = sub_parser.add_parser(str(Tasks.PRE_TRAINING))
+    analyze_pre_train = sub_parser.add_parser(str(Tasks.ANALYZE_PRE_TRAINING))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -295,6 +300,9 @@ def _set_up_arg_parser() -> ArgumentParser:
         "--splits", type=tuple[float, float, float], default=(0.9, 0.1, 0.0)
     )
     pre_training_sub_parser.add_argument("--epochs", type=int, required=True)
+
+    # Set up arguments for analyzing pre-training
+    analyze_pre_train.add_argument("--dir", type=Path, required=True)
 
     return arg_parser
 
