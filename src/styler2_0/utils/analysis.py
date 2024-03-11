@@ -588,6 +588,7 @@ def analyze_pre_train_data(pre_train_dir: Path) -> None:
         "pre_train_amount": pre_train_amount,
         "pre_train_amount_dict": dict(pre_train_amount_dict),
         "changed_lines_avg": sum(changed_lines) / len(changed_lines),
+        "changed_lines": changed_lines,
     }
 
     print(pre_train_data)
