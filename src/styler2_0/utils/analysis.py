@@ -628,3 +628,20 @@ def _changed_lines(violated_source: str, non_violated_source: str) -> int:
         added_lines = 0
 
     return changed_lines
+
+
+def analyze_changed_lines_generated(gen_vio_dir: Path) -> None:
+    """
+    Analyze the changed lines of the generated violations.
+    :param gen_vio_dir: The directory with the generated violations.
+    :return:
+    """
+    protocols = get_sub_dirs_in_dir(gen_vio_dir)
+    changed_lines = []
+    for protocol in protocols:
+        for vio in get_sub_dirs_in_dir(gen_vio_dir / protocol):
+            data = json.loads(read_content_of_file(vio / "data.json"))
+            changed_lines.append(
+                _changed_lines(data["violated_source"], data["non_violated_source"])
+            )
+    save_content_to_file(gen_vio_dir / "changed_lines.json", str(changed_lines))

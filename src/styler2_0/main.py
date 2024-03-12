@@ -28,6 +28,7 @@ from src.styler2_0.utils.styler_adaption import adapt_styler_three_gram_csv
 from src.styler2_0.utils.utils import enum_action
 from styler2_0.utils.analysis import (
     analyze_all_eval_jsons,
+    analyze_changed_lines_generated,
     analyze_data_dir,
     analyze_generated_violations,
     analyze_pre_train_data,
@@ -51,6 +52,7 @@ class Tasks(Enum):
     ANALYZE_DIR = "ANALYZE_DIR"
     PRE_TRAINING = "PRE_TRAINING"
     ANALYZE_PRE_TRAINING = "ANALYZE_PRE_TRAINING"
+    ANALYZE_CL_GEN = "ANALYZE_CL_GEN"
 
     @classmethod
     def _missing_(cls, value: object) -> Any:
@@ -100,6 +102,8 @@ def main() -> int:
             _run_pre_training(parsed_args)
         case Tasks.ANALYZE_PRE_TRAINING:
             analyze_pre_train_data(parsed_args.dir)
+        case Tasks.ANALYZE_CL_GEN:
+            analyze_changed_lines_generated(parsed_args.dir)
         case _:
             return 1
     return 0
@@ -241,6 +245,7 @@ def _set_up_arg_parser() -> ArgumentParser:
     analyze_dir_sub_parser = sub_parser.add_parser(str(Tasks.ANALYZE_DIR))
     pre_training_sub_parser = sub_parser.add_parser(str(Tasks.PRE_TRAINING))
     analyze_pre_train = sub_parser.add_parser(str(Tasks.ANALYZE_PRE_TRAINING))
+    analyze_cl_gen = sub_parser.add_parser(str(Tasks.ANALYZE_CL_GEN))
 
     # Set up arguments for generating violations
     generation.add_argument(
@@ -303,6 +308,9 @@ def _set_up_arg_parser() -> ArgumentParser:
 
     # Set up arguments for analyzing pre-training
     analyze_pre_train.add_argument("--dir", type=Path, required=True)
+
+    # Set up arguments for analyzing cl gen
+    analyze_cl_gen.add_argument("--dir", type=Path, required=True)
 
     return arg_parser
 
