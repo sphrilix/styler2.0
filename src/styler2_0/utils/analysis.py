@@ -639,7 +639,9 @@ def analyze_changed_lines_generated(gen_vio_dir: Path) -> None:
     protocols = get_sub_dirs_in_dir(gen_vio_dir)
     changed_lines = []
     for protocol in protocols:
+        print(protocol)
         for vio in get_sub_dirs_in_dir(gen_vio_dir / protocol):
+            print(vio)
             data = json.loads(read_content_of_file(vio / "data.json"))
             changed_lines.append(
                 _changed_lines(data["violated_source"], data["non_violated_source"])
