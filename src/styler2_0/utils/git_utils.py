@@ -29,7 +29,6 @@ from src.styler2_0.utils.utils import (
     save_content_to_file,
 )
 from src.styler2_0.utils.vocab import Vocabulary
-from styler2_0.utils.java import NonParseableException
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
@@ -274,7 +273,7 @@ def _save_violations(
     """
     git_repo = Git(str(input_dir))
     for i, violation in tqdm(enumerate(commit_reports), desc="Saving violations"):
-        with suppress(NonParseableException):
+        with suppress(Exception):
             git_repo.checkout(violation.violations_hash)
             violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
             violation_dir.mkdir(parents=True)
