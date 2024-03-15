@@ -214,6 +214,10 @@ def evaluate(
             violation_type = next(iter(report.violations)).type
             violated_file = str(report.path)
 
+            data_content = json.loads(read_content_of_file(violation / "data.json"))
+            if data_content.get("fixed"):
+                continue
+
             # Process the file to be fed to the model.
             violation_content = read_content_of_file(get_files_in_dir(violation_dir)[0])
             try:
