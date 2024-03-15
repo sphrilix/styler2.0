@@ -107,6 +107,27 @@ Evaluate a model on mined violations.
 --model {TRANSFORMER, LSTM, ANN, NGRAM}:: The model to be evaluated.
 --mine_violations_dir MINED_VIOLATIONS_DIR:: The path to the mined violations.
 
+=== `ANALYZE_EVAL`
+
+Analyze the evaluation results of one project.
+
+.Options
+--eval_dir EVAL_DIR:: The directory of the evaluation results.
+
+=== `ANALYZE_DIR`
+
+Analyzes the evaluation results of all projects in a directory.
+
+.Options
+--project_dir PROJECT_DIR:: The projects directory.
+
+=== `PRE_TRAINING`
+
+Runs the pretraining.
+
+.Options
+--projects_dir PROJECT_DIR:: The projects directory.
+--save_dir SAVE_DIR:: The save directory.
 
 == Tests and Linting
 
