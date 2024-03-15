@@ -132,8 +132,16 @@ Runs the pretraining.
 === `ANALYZE_PRE_TRAINING`
 
 Analyzes the pretraining results.
+
 .Options
 --dir PRETRAINING_DIR:: The pretraining directory.
+
+=== `ANALYZE_CL_GEN`
+
+Analyzes the changed lines of generated violations.
+
+.Options
+--dir DIR:: The directory of the generated violations.
 
 == Tests and Linting
 
