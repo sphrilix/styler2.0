@@ -129,6 +129,12 @@ Runs the pretraining.
 --projects_dir PROJECT_DIR:: The projects directory.
 --save_dir SAVE_DIR:: The save directory.
 
+=== `ANALYZE_PRE_TRAINING`
+
+Analyzes the pretraining results.
+.Options
+--dir PRETRAINING_DIR:: The pretraining directory.
+
 == Tests and Linting
 
 The `Makefile` contains several examples how the unit-tests and various linters can be run using poetry.
