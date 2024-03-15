@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from src.styler2_0.utils.checkstyle import (
     CheckstyleFileReport,
     Violation,
@@ -9,6 +11,7 @@ from src.styler2_0.utils.checkstyle import (
 )
 from src.styler2_0.utils.tokenize import (
     Comment,
+    Identifier,
     ProcessedSourceFile,
     Whitespace,
     tokenize_java_code,
@@ -164,3 +167,61 @@ def test_tokenize_with_line_violations() -> None:
     processed_source = ProcessedSourceFile(None, tokens, report)
     assert processed_source.tokens[26].text == "RegexpSinglelineJava"
     assert processed_source.tokens[48].text == "RegexpSinglelineJava"
+
+
+def _empty_class() -> str:
+    return "public class Empty { %s }"
+
+
+def _empty_class_with_missing_variable_name() -> str:
+    return _empty_class() % "public int %s = 42;"
+
+
+def _identifier_test_cases() -> list[tuple[str, str]]:
+    return [
+        (
+            _empty_class_with_missing_variable_name() % "camelCase",
+            "[I_LOWER] [I_FIRST_UPPER_OTHER_LOWER]",
+        ),
+        (
+            _empty_class_with_missing_variable_name() % "snake_case",
+            "[I_LOWER] [I_UNDERSCORE] [I_LOWER]",
+        ),
+        (
+            _empty_class_with_missing_variable_name() % "CONST_CASE",
+            "[I_UPPER] [I_UNDERSCORE] [I_UPPER]",
+        ),
+        (_empty_class_with_missing_variable_name() % "number42", "[I_LOWER]"),
+        (
+            _empty_class_with_missing_variable_name() % "snake_Case",
+            "[I_LOWER] [I_UNDERSCORE] [I_FIRST_UPPER_OTHER_LOWER]",
+        ),
+        (
+            _empty_class_with_missing_variable_name() % "CONST_Case",
+            "[I_UPPER] [I_UNDERSCORE] [I_FIRST_UPPER_OTHER_LOWER]",
+        ),
+    ]
+
+
+@pytest.mark.parametrize("inp, expected", _identifier_test_cases())  # noqa: PT006
+def test_tokenize_identifiers(inp: str, expected: str) -> None:
+    tokens = tokenize_java_code(inp)
+    assert str(tokens[12]) == expected
+
+
+def test_parse_tokenized_str_identifier_cases() -> list[((list[str], str), str)]:
+    return [
+        ((["[I_LOWER]", "[I_FIRST_UPPER_OTHER_LOWER]"], "camel_case"), "camelCase"),
+        ((["[I_LOWER]", "[I_UNDERSCORE]", "[I_LOWER]"], "camelCase"), "camel_case"),
+        ((["[I_UPPER]", "[I_UNDERSCORE]", "[I_LOWER]"], "camelCase"), "CAMEL_case"),
+        ((["[I_UPPER]", "[I_UNDERSCORE]"], "camelCASE"), "CAMEL_CASE"),
+        ((["[I_UPPER]"], "camel_case"), "CAMELcase"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "inp, expected", test_parse_tokenized_str_identifier_cases()  # noqa: PT006
+)
+def test_parse_tokenized_str_identifier(inp: (list[str], str), expected: str) -> None:
+    out = Identifier.parse_tokenized_str(inp[0], inp[1])
+    assert out == expected

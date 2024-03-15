@@ -8,7 +8,11 @@ from typing import Self
 
 from streamerate import stream
 
-from src.styler2_0.utils.checkstyle import CheckstyleFileReport, Violation
+from src.styler2_0.utils.checkstyle import (
+    CheckstyleFileReport,
+    Violation,
+    ViolationType,
+)
 from src.styler2_0.utils.java import Lexeme, lex_java
 
 #######################################################################################
@@ -141,8 +145,68 @@ class Identifier(Token):
     Class which represents Identifier/Literals
     """
 
+    STRING_SPLITTER = re.compile(
+        r"(?<=[a-z])(?=[A-Z])|(_)|(-)|(\\d)|(?<=[A-Z])(?=[A-Z][a-z])|\\s+"
+    )
+    ALL_LOWER_SUB_TOKEN = "[I_LOWER]"
+    ALL_UPPER_SUB_TOKEN = "[I_UPPER]"
+    FIRST_UPPER_OTHER_LOWER_SUB_TOKEN = "[I_FIRST_UPPER_OTHER_LOWER]"
+    HYPHEN = "[I_HYPHEN]"
+    UNDERSCORE = "[I_UNDERSCORE]"
+
     def __str__(self) -> str:
-        return "IDENTIFIER"
+        sub_tokens = self.sub_tokens_of_identifier(self.text)
+        return " ".join(map(self._process_sub_token, sub_tokens))
+
+    @staticmethod
+    def sub_tokens_of_identifier(identifier: str) -> list[str]:
+        return list(
+            filter(
+                lambda token: token is not None and token != "",
+                Identifier.STRING_SPLITTER.split(identifier),
+            )
+        )
+
+    def _process_sub_token(self, sub_token: str) -> str:
+        if sub_token.isupper():
+            return self.ALL_UPPER_SUB_TOKEN
+        if sub_token[0].isupper() and sub_token[1:].islower():
+            return self.FIRST_UPPER_OTHER_LOWER_SUB_TOKEN
+        if sub_token == "-":
+            return self.HYPHEN
+        if sub_token == "_":
+            return self.UNDERSCORE
+        return self.ALL_LOWER_SUB_TOKEN
+
+    @staticmethod
+    def parse_tokenized_str(tokenized_str: list[str], old_name: str) -> str:
+        """
+        Parse a tokenized string to the real representation.
+        :param tokenized_str: The tokenized string representation.
+        :param old_name: The old name of the identifier in the wrong format.
+        :return: Returns the new name of the identifier in the correct format.
+        """
+
+        # Filter non name format tokens
+        tokenized_str = [t for t in tokenized_str if t.startswith("[I")]
+        out = ""
+        tokens = [t for t in Identifier.sub_tokens_of_identifier(old_name) if t != "_"]
+        for current_template in tokenized_str:
+            if current_template == Identifier.UNDERSCORE:
+                out += "_"
+                continue
+            if not tokens:
+                break
+            t = tokens.pop(0)
+            if current_template == Identifier.ALL_LOWER_SUB_TOKEN:
+                out += t.lower()
+            elif current_template == Identifier.ALL_UPPER_SUB_TOKEN:
+                out += t.upper()
+            elif current_template == Identifier.FIRST_UPPER_OTHER_LOWER_SUB_TOKEN:
+                out += t.title()
+        if tokens:
+            out += "".join(tokens)
+        return out
 
 
 class Whitespace(Token):
@@ -332,21 +396,31 @@ class ProcessedSourceFile:
         tokens_between = self.tokens[start_idx : end_idx + 1]
         possible_fixes = []
         for fix in fixes:
+            # TODO: why ValueError?
             with suppress(ValueError):
-                possible_fix = []
-                for token in tokens_between:
-                    if isinstance(token, Whitespace) and len(fix) > 0:
-                        fix_str = Whitespace.parse_tokenized_str(fix[0])
-                        fix_token = copy.deepcopy(token)
-                        fix_token.text = fix_str
-                        possible_fix.append(fix_token)
-                        fix = fix[1:]
-                    else:
-                        possible_fix.append(token)
+                if start.text.lower().endswith("name"):
+                    identifier = next(
+                        iter(t for t in tokens_between if isinstance(t, Identifier))
+                    )
+                    possible_fix = self._insert_fix_name_violation(fix, identifier)
+                else:
+                    possible_fix = self._insert_fix_format_violation(
+                        fix, tokens_between
+                    )
                 possible_fixes.append(possible_fix)
         for possible_fix in possible_fixes:
             copy_tokens = copy.deepcopy(self.tokens)
-            copy_tokens[start_idx : end_idx + 1] = possible_fix
+            if start.text.lower().endswith("name"):
+                identifier = next(
+                    iter(t for t in tokens_between if isinstance(t, Identifier))
+                )
+                old_value = identifier.text
+                new_value = possible_fix[0].text
+                for t in copy_tokens:
+                    if isinstance(t, Identifier) and t.text == old_value:
+                        t.text = new_value
+            else:
+                copy_tokens[start_idx : end_idx + 1] = possible_fix
             yield ProcessedSourceFile(self.file_name, copy_tokens)
 
     def __repr__(self) -> str:
@@ -358,7 +432,9 @@ class ProcessedSourceFile:
         ), "Report and source file path must match."
 
         for violation in report.violations:
-            if violation.column is None:
+            if violation.type.name.endswith("NAME"):
+                start, end = self._get_name_violation_ctx(violation)
+            elif violation.column is None:
                 start, end = self._get_line_violation_ctx(violation)
             else:
                 start, end = self._get_col_violation_ctx(violation)
@@ -471,6 +547,51 @@ class ProcessedSourceFile:
             .next()
         )
 
+    def _get_name_violation_ctx(self, violation: Violation) -> tuple[Token, Token]:
+        assert violation.type.name.endswith("NAME")
+        if violation.column is not None:
+            violated_name_token = (
+                stream(self.non_ws_tokens)
+                .reversed()
+                .filter(lambda token: isinstance(token, Identifier))
+                .filter(lambda token: token.line == violation.line)
+                .filter(lambda token: token.column <= violation.column)
+                .next()
+            )
+        else:
+            violated_name_token = (
+                stream(self.non_ws_tokens)
+                .filter(lambda token: isinstance(token, Identifier))
+                .filter(lambda token: token.line == violation.line)
+                .next()
+            )
+        return violated_name_token, violated_name_token
+
+    @staticmethod
+    def _insert_fix_format_violation(
+        fix: list[str], tokens_between: list[Token]
+    ) -> list[Token]:
+        fix = [f for f in fix if not f.startswith("[I") and not f.startswith("<")]
+        possible_fix = []
+        for token in tokens_between:
+            if isinstance(token, Whitespace) and len(fix) > 0:
+                fix_str = Whitespace.parse_tokenized_str(fix[0])
+                fix_token = copy.deepcopy(token)
+                fix_token.text = fix_str
+                possible_fix.append(fix_token)
+                fix = fix[1:]
+            else:
+                possible_fix.append(token)
+        return possible_fix
+
+    @staticmethod
+    def _insert_fix_name_violation(
+        fix: list[str], identifier: Identifier
+    ) -> list[Token]:
+        assert isinstance(identifier, Identifier)
+        new_value = Identifier.parse_tokenized_str(fix, identifier.text)
+        return [Identifier(new_value, identifier.line, identifier.column)]
+
 
 class ContainsStr(str):
     """
@@ -505,6 +626,8 @@ def _process_raw_token(raw_token: Lexeme) -> Token:
 
 
 def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
+    if len(tokens) == 0:
+        return tokens
     padded_tokens = []
     for token, suc in zip(tokens[:-1], tokens[1:], strict=True):
         padded_tokens.append(token)
@@ -524,7 +647,7 @@ def _insert_placeholder_ws(tokens: list[Token]) -> list[Token]:
 
 
 def _remove_eof(tokens: list[Token]) -> list[Token]:
-    if tokens[-1].text == "<EOF>":
+    if len(tokens) > 0 and tokens[-1].text == "<EOF>":
         return tokens[:-1]
     return tokens
 
@@ -581,3 +704,16 @@ def tokenize_with_reports(
             processed_file = ProcessedSourceFile(report.path, tokens, report)
             processed_files.append(processed_file)
     return processed_files
+
+
+def interesting_tokens_type(violation: ViolationType) -> type(Token):
+    """
+    Get the interesting token type for a given violation.
+    :param violation: The given violation.
+    :return: Returns the interesting token type.
+    """
+    match violation.name.split("_")[-1]:
+        case "NAME":
+            return Identifier
+        case _:
+            return Whitespace

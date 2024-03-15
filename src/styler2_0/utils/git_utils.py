@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from collections.abc import Sequence
 from contextlib import suppress
@@ -6,10 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
+from bidict import bidict
 from pydriller import Commit, Git, Repository
 from streamerate import stream
 from tqdm import tqdm
 
+from src.styler2_0.preprocessing.violation_generation import filter_relevant_tokens
+from src.styler2_0.utils.analysis import analyze_mined_violations
 from src.styler2_0.utils.checkstyle import (
     CheckstyleFileReport,
     ViolationType,
@@ -17,12 +21,21 @@ from src.styler2_0.utils.checkstyle import (
     run_checkstyle_on_dir,
 )
 from src.styler2_0.utils.maven import pom_includes_checkstyle_suppression
-from src.styler2_0.utils.utils import save_content_to_file
+from src.styler2_0.utils.tokenize import tokenize_with_reports
+from src.styler2_0.utils.utils import (
+    get_files_in_dir,
+    get_sub_dirs_in_dir,
+    read_content_of_file,
+    save_content_to_file,
+)
+from src.styler2_0.utils.vocab import Vocabulary
+from styler2_0.utils.java import NonParseableException
 
 MINED_VIOLATIONS_DIR = Path("mined_violations")
 
 # TODO: How to handle suppression files?!
 #       Styler for example discards every commit that contains a suppression file.
+#       Currently, we do the same.
 
 
 class NotProcessableGitRepositoryException(Exception):
@@ -96,6 +109,7 @@ def process_git_repository(
         save_content_to_file(
             output_dir / MINED_VIOLATIONS_DIR / "data.json", json.dumps(meta_data)
         )
+        analyze_mined_violations(output_dir / MINED_VIOLATIONS_DIR)
 
 
 def _extract_commits_to_search(input_dir: Path, config: Path) -> Sequence[Commit]:
@@ -260,18 +274,119 @@ def _save_violations(
     """
     git_repo = Git(str(input_dir))
     for i, violation in tqdm(enumerate(commit_reports), desc="Saving violations"):
-        git_repo.checkout(violation.violations_hash)
-        violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
-        violation_dir.mkdir(parents=True)
-        shutil.copy(
-            violation.violation_report.path,
-            violation_dir,
-        )
-        if violation.is_fixed():
-            fix_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "fix/"
-            fix_dir.mkdir(parents=True)
-            git_repo.checkout(violation.fix_hash)
+        with suppress(NonParseableException):
+            git_repo.checkout(violation.violations_hash)
+            violation_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "violation/"
+            violation_dir.mkdir(parents=True)
             shutil.copy(
-                violation.fix_report.path,
-                fix_dir,
+                violation.violation_report.path,
+                violation_dir,
             )
+            vio_processed = next(
+                iter(tokenize_with_reports(frozenset([violation.violation_report])))
+            )
+            fix_processed = None
+            if violation.is_fixed():
+                fix_dir = output_dir / MINED_VIOLATIONS_DIR / str(i) / "fix/"
+                fix_dir.mkdir(parents=True)
+                git_repo.checkout(violation.fix_hash)
+                shutil.copy(
+                    violation.fix_report.path,
+                    fix_dir,
+                )
+                fix_processed = next(
+                    iter(tokenize_with_reports(frozenset([violation.fix_report])))
+                )
+            interesting_tokens = None
+            if fix_processed:
+                with suppress(Exception):
+                    interesting_tokens = filter_relevant_tokens(
+                        fix_processed, vio_processed
+                    )
+
+            meta_data = {
+                "violation_hash": violation.violations_hash,
+                "fix_hash": violation.fix_hash,
+                "fixed": violation.is_fixed(),
+                "violation_type": next(
+                    iter(violation.violation_report.violations)
+                ).type.value,
+            }
+            if interesting_tokens:
+                meta_data["violation_str"] = interesting_tokens[1]
+                meta_data["fix_str"] = interesting_tokens[0]
+            save_content_to_file(
+                output_dir / MINED_VIOLATIONS_DIR / str(i) / "data.json",
+                json.dumps(meta_data),
+            )
+
+
+def collect_git_pre_training_data(projects_dir: Path, save: Path) -> None:
+    """
+    Collect pretraining data from mined violations.
+    :param projects_dir: The directory where the mined repos are.
+    :param save: Directory to save the data.
+    :return:
+    """
+    models_dirs = ["ann", "lstm", "transformer", "ngram"]
+    model_src_vocabs = {m: Vocabulary(bidict()) for m in models_dirs}
+    model_trg_vocabs = {m: Vocabulary(bidict()) for m in models_dirs}
+    protocols = ["random", "three_gram"]
+    projects = get_sub_dirs_in_dir(projects_dir)
+    count = 0
+    for project in projects:
+        if project.name == "pre_training":
+            continue
+        for protocol in protocols:
+            for model_dir in models_dirs:
+                model_data_dir = project / "model_data" / protocol / model_dir
+                if not model_data_dir.exists():
+                    continue
+                model_src_vocabs[model_dir].merge_into(
+                    Vocabulary.load(model_data_dir / "src_vocab.txt")
+                )
+                model_trg_vocabs[model_dir].merge_into(
+                    Vocabulary.load(model_data_dir / "trg_vocab.txt")
+                )
+        mined_vios = project / "mined_violations"
+        checkstyle_data = json.loads(read_content_of_file(mined_vios / "data.json"))
+        cs_version = checkstyle_data["version"]
+        cs_conf = checkstyle_data["config"]
+        for vio_dir in get_sub_dirs_in_dir(mined_vios):
+            vio_json = json.loads(read_content_of_file(vio_dir / "data.json"))
+            if "fix_str" in vio_json and "violation_str" in vio_json:
+                non_violated_src = next(iter(get_files_in_dir(vio_dir / "violation")))
+                violated_src = next(iter(get_files_in_dir(vio_dir / "fix")))
+                vio_type = vio_json["violation_type"]
+                violated_str = vio_json["violation_str"]
+                non_violated_str = vio_json["fix_str"]
+
+                # Skip empty training samples.
+                if not (violated_str and non_violated_str):
+                    continue
+                vio_save = save / "violations/pre_training" / str(count)
+                os.makedirs(vio_save, exist_ok=True)
+                save_content_to_file(
+                    vio_save / "data.json",
+                    json.dumps(
+                        {
+                            "violated_str": violated_str,
+                            "non_violated_str": non_violated_str,
+                            "version": cs_version,
+                            "config": cs_conf,
+                            "non_violated_source": str(non_violated_src),
+                            "violated_source": str(violated_src),
+                            "violation_type": vio_type,
+                        }
+                    ),
+                )
+                count += 1
+    for model_dir in models_dirs:
+        model_data_dir = save / "model_data/pre_training" / model_dir
+        os.makedirs(model_data_dir, exist_ok=True)
+        save_content_to_file(
+            model_data_dir / "src_vocab.txt", model_src_vocabs[model_dir].to_json()
+        )
+        save_content_to_file(
+            model_data_dir / "trg_vocab.txt", model_trg_vocabs[model_dir].to_json()
+        )

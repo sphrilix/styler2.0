@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+from contextlib import suppress
 from math import isclose
 from pathlib import Path
 from random import shuffle
@@ -16,7 +18,11 @@ from src.styler2_0.preprocessing.model_tokenizer import (
     SplitByTokenizer,
 )
 from src.styler2_0.preprocessing.violation_generation import Metadata
-from src.styler2_0.utils.utils import read_content_of_file, save_content_to_file
+from src.styler2_0.utils.utils import (
+    get_sub_dirs_in_dir,
+    read_content_of_file,
+    save_content_to_file,
+)
 from src.styler2_0.utils.vocab import Vocabulary
 
 VIOLATION_DIR = Path("violations/")
@@ -37,15 +43,15 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
         raise ValueError("Splits must sum to 1.0.")
 
     protocol = _get_protocol_from_path(violation_dir)
-    dirs = os.listdir(violation_dir)
+    dirs = get_sub_dirs_in_dir(violation_dir)
     shuffle(dirs)
-
     complete_train = violation_dir / MODEL_DATA_PATH / protocol / TRAIN_PATH
     complete_val = violation_dir / MODEL_DATA_PATH / protocol / VAL_PATH
     complete_test = violation_dir / MODEL_DATA_PATH / protocol / TEST_PATH
 
     # If the splits are already built, don't rebuild them.
     if complete_train.exists() and complete_val.exists() and complete_test.exists():
+        print("Splits already built.")
         return
 
     os.makedirs(complete_train)
@@ -61,11 +67,11 @@ def _build_splits(violation_dir: Path, splits: (float, float, float)) -> None:
     validation = dirs[int(len(dirs) * train_part) : int(len(dirs) * val_part)]
     testing = dirs[int(len(dirs) * val_part) :]
     for violation in training:
-        copytree(violation_dir / Path(violation), complete_train / Path(violation))
+        copytree(Path(violation), complete_train / Path(violation.name))
     for violation in validation:
-        copytree(violation_dir / Path(violation), complete_val / Path(violation))
+        copytree(Path(violation), complete_val / Path(violation.name))
     for violation in testing:
-        copytree(violation_dir / Path(violation), complete_test / Path(violation))
+        copytree(Path(violation), complete_test / Path(violation.name))
 
 
 def _build_vocab(
@@ -81,10 +87,10 @@ def _build_vocab(
         / TRAIN_PATH
     )
     metadata = []
-    for violation in os.listdir(build_vocabs_path):
-        metadata_json_content = read_content_of_file(
-            build_vocabs_path / Path(violation) / DATA_JSON
-        )
+    for violation in get_sub_dirs_in_dir(build_vocabs_path):
+        if not (Path(violation) / DATA_JSON).exists():
+            continue
+        metadata_json_content = read_content_of_file(Path(violation) / DATA_JSON)
         metadata.append(Metadata.from_json(metadata_json_content))
     src_vocab, trg_vocab = _get_vocabs_from_metadata(
         metadata, src_tokenizer, trg_tokenizer
@@ -120,10 +126,10 @@ def _build_inputs_from_vocab(
 ) -> None:
     model_input = []
     ground_truth = []
-    for violation in os.listdir(input_dir):
-        metadata = Metadata.from_json(
-            read_content_of_file(input_dir / violation / DATA_JSON)
-        )
+    for violation in get_sub_dirs_in_dir(input_dir):
+        if not (Path(violation) / DATA_JSON).exists():
+            continue
+        metadata = Metadata.from_json(read_content_of_file(violation / DATA_JSON))
 
         violated_tokens = src_tokenizer.tokenize(metadata.violated_str)
         non_violated_tokens = trg_tokenizer.tokenize(metadata.non_violated_str)
@@ -173,7 +179,11 @@ def _build_model_tokenizers(model: Models) -> tuple[ModelTokenizer, ModelTokeniz
 
 
 def preprocessing(
-    project_dir: Path, splits: (float, float, float), model: Models = Models.LSTM
+    project_dir: Path,
+    splits: (float, float, float),
+    model: Models = Models.LSTM,
+    src_vocab_path: Path = None,
+    trg_vocab_path: Path = None,
 ) -> None:
     """
     Build the input for the lstm model.
@@ -183,15 +193,41 @@ def preprocessing(
     :return:
     """
     violation_dir = project_dir / VIOLATION_DIR
-    protocol_dirs = [
-        violation_dir / Path(directory) for directory in os.listdir(violation_dir)
-    ]
+    protocol_dirs = get_sub_dirs_in_dir(violation_dir)
     for protocol_violation_dir in protocol_dirs:
         _build_splits(protocol_violation_dir, splits)
         src_tokenizer, trg_tokenizer = _build_model_tokenizers(model)
-        src_vocab, trg_vocab = _build_vocab(
-            protocol_violation_dir, src_tokenizer, trg_tokenizer, model
-        )
+        if not (src_vocab_path and trg_vocab_path):
+            src_vocab, trg_vocab = _build_vocab(
+                protocol_violation_dir, src_tokenizer, trg_tokenizer, model
+            )
+        else:
+            os.makedirs(
+                protocol_violation_dir
+                / MODEL_DATA_PATH
+                / _get_protocol_from_path(protocol_violation_dir)
+                / model.name.lower(),
+                exist_ok=True,
+            )
+            with suppress(shutil.SameFileError):
+                shutil.copy(
+                    src_vocab_path,
+                    protocol_violation_dir
+                    / MODEL_DATA_PATH
+                    / _get_protocol_from_path(protocol_violation_dir)
+                    / model.name.lower()
+                    / SRC_VOCAB_FILE,
+                )
+                shutil.copy(
+                    trg_vocab_path,
+                    protocol_violation_dir
+                    / MODEL_DATA_PATH
+                    / _get_protocol_from_path(protocol_violation_dir)
+                    / model.name.lower()
+                    / TRG_VOCAB_FILE,
+                )
+            src_vocab = Vocabulary.load(src_vocab_path)
+            trg_vocab = Vocabulary.load(trg_vocab_path)
 
         # Process train examples
         train_input_dir = (
